@@ -75,7 +75,7 @@ export default function Login() {
     <div className="login-container">
       <div className="login-box">
         <img src={logoSaras} alt="Logo Saras" className="login-logo" />
-        <h2>Login CMS SARAS</h2>
+        <h2>Login SARAS App</h2>
         <form onSubmit={handleLogin}>
           <div className="input-group">
             <label htmlFor="email">Email</label>

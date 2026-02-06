@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SARAS</string>
+    <string name="title_activity_main">SARAS</string>
+    <string name="package_name">com.ryumedia.saras</string>
+    <string name="custom_url_scheme">com.ryumedia.saras</string>
+</resources>

@@ -1,8 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const { currentUserData } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (currentUserData) {
+      // Cek apakah user memiliki role admin. Jika tidak (berarti siswa), redirect ke /app
+      const isAdmin = currentUserData.role && ['Super Admin', 'Admin Puskesmas', 'Admin Sekolah'].includes(currentUserData.role);
+      if (!isAdmin) {
+        navigate('/app', { replace: true });
+      }
+    }
+  }, [currentUserData, navigate]);
 
   return (
     <div className="dashboard-container">

@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { auth, db } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import './styles/Modal.css';
+import logoSaras from './assets/logo.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -73,7 +74,7 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-box">
-        <img src="/vite.svg" alt="Logo Saras" className="login-logo" />
+        <img src={logoSaras} alt="Logo Saras" className="login-logo" />
         <h2>Login CMS SARAS</h2>
         <form onSubmit={handleLogin}>
           <div className="input-group">

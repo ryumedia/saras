@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
+import logoSaras from './assets/logo.png';
 
 const menuItems = [
   { path: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -144,7 +145,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <img src="/vite.svg" alt="Logo Saras" className="sidebar-logo" />
+        <img src={logoSaras} alt="Logo Saras" className="sidebar-logo" />
         {adminInfo && (
           <div className="admin-info">
             <div className="admin-name">{adminInfo.nama}</div>

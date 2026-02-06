@@ -144,7 +144,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <img src="/public/logo.png" alt="Logo Saras" className="sidebar-logo" />
+        <img src="/logo.png" alt="Logo Saras" className="sidebar-logo" />
         {adminInfo && (
           <div className="admin-info">
             <div className="admin-name">{adminInfo.nama}</div>

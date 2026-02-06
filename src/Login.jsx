@@ -73,7 +73,7 @@ export default function Login() {
   return (
     <div className="login-container">
       <div className="login-box">
-        <img src="public/logo.png" alt="Logo Saras" className="login-logo" />
+        <img src="/logo.png" alt="Logo Saras" className="login-logo" />
         <h2>Login CMS SARAS</h2>
         <form onSubmit={handleLogin}>
           <div className="input-group">

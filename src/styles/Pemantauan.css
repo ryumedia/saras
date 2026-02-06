@@ -90,6 +90,3 @@
 .summary-card.orange .value { color: #d97706; }
 .summary-card.red .value { color: #dc2626; }
 .summary-card.teal .value { color: #0d9488; }
-
-/* Menggunakan style dari DataObat.css untuk tabel */
-@import './DataObat.css';

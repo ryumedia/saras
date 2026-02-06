@@ -18,7 +18,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
-import logoSaras from './assets/logo.png';
+import logoSaras from './assets/Logo.png';
 
 const menuItems = [
   { path: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },

@@ -4,7 +4,7 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { auth, db } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import './styles/Modal.css';
-import logoSaras from './assets/logo.png';
+import logoSaras from './assets/Logo.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');

@@ -1,0 +1,161 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { db } from '../../firebase';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { Calendar, Pill } from 'lucide-react';
+import '../../styles/Riwayat.css';
+
+export default function RiwayatMinumObat() {
+  const { currentUser } = useAuth();
+  const [riwayat, setRiwayat] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterYear, setFilterYear] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+
+  useEffect(() => {
+    const fetchRiwayat = async () => {
+      if (!currentUser) return;
+
+      setLoading(true);
+      try {
+        // Ambil data laporan minum obat milik siswa yang sedang login
+        const q = query(
+          collection(db, "laporan_minum_obat"),
+          where("siswaId", "==", currentUser.uid)
+          // Note: Jika ingin sorting by timestamp di Firestore bersamaan dengan where,
+          // biasanya perlu Composite Index. Jika error, hapus orderBy dan sort manual di JS.
+        );
+
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        // Sort manual (terbaru di atas) untuk menghindari masalah index Firestore
+        data.sort((a, b) => {
+            const dateA = a.timestamp ? a.timestamp.toDate() : new Date(a.tanggalLapor);
+            const dateB = b.timestamp ? b.timestamp.toDate() : new Date(b.tanggalLapor);
+            return dateB - dateA;
+        });
+
+        setRiwayat(data);
+      } catch (error) {
+        console.error("Error fetching history:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRiwayat();
+  }, [currentUser]);
+
+  // Ambil daftar tahun unik dari data
+  const years = useMemo(() => {
+    const uniqueYears = new Set(riwayat.map(item => new Date(item.tanggalLapor).getFullYear()));
+    return Array.from(uniqueYears).sort((a, b) => b - a);
+  }, [riwayat]);
+
+  // Filter data berdasarkan Bulan dan Tahun
+  const filteredRiwayat = useMemo(() => {
+    return riwayat.filter(item => {
+      const date = new Date(item.tanggalLapor);
+      const year = date.getFullYear().toString();
+      const month = (date.getMonth() + 1).toString(); // 1-12
+
+      const matchYear = filterYear ? year === filterYear : true;
+      const matchMonth = filterMonth ? month === filterMonth : true;
+
+      return matchYear && matchMonth;
+    });
+  }, [riwayat, filterYear, filterMonth]);
+
+
+  if (loading) {
+    return <div className="p-4 text-center text-gray-500">Memuat riwayat...</div>;
+  }
+
+  return (
+    <div className="riwayat-page">
+      <div className="riwayat-header">
+        <h1>Riwayat Minum Obat</h1>
+        <p>Catatan kedisiplinan minum obatmu.</p>
+      </div>
+
+      {/* Filter Section */}
+      <div className="filter-section">
+        <div className="select-wrapper">
+          <select 
+            value={filterYear} 
+            onChange={(e) => setFilterYear(e.target.value)}
+            className="modern-select"
+          >
+            <option value="">Semua Tahun</option>
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <div className="select-arrow">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+          </div>
+        </div>
+        
+        <div className="select-wrapper">
+          <select 
+            value={filterMonth} 
+            onChange={(e) => setFilterMonth(e.target.value)}
+            className="modern-select"
+          >
+            <option value="">Semua Bulan</option>
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+          <div className="select-arrow">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+          </div>
+        </div>
+      </div>
+
+      {filteredRiwayat.length === 0 ? (
+        <div className="empty-state">
+          <Calendar className="empty-icon" />
+          <p>Tidak ada data riwayat.</p>
+        </div>
+      ) : (
+        <div className="history-list">
+          {filteredRiwayat.map((item) => (
+            <div 
+              key={item.id} 
+              className="history-item"
+            >
+              <div className="item-left">
+                <div className="item-icon-bg">
+                  <Pill className="item-icon" />
+                </div>
+                <div className="item-info">
+                  <p className="item-name">{item.namaObat || 'Obat'}</p>
+                  <div className="item-date-wrapper">
+                    <Calendar className="date-icon" />
+                    <span>{item.tanggalLapor}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="item-right">
+                <span className="item-quantity">{item.jumlah}</span>
+                <span className="item-unit">Pcs</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

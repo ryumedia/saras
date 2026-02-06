@@ -1,0 +1,160 @@
+.reward-page {
+  padding: 20px;
+  padding-bottom: 80px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.reward-header {
+  margin-bottom: 20px;
+}
+
+.reward-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 5px 0;
+}
+
+.reward-header p {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.filter-container {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  padding: 10px 15px;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  width: fit-content;
+}
+
+.filter-container label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.year-select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 1rem;
+  outline: none;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.months-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 15px;
+}
+
+.month-card {
+  background: white;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s;
+}
+
+.month-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.month-card.claimed {
+  background-color: #f0fdfa; /* Teal-50 */
+  border-color: #ccfbf1;
+}
+
+.month-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.month-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.badge-claimed {
+  font-size: 0.7rem;
+  background-color: #0d9488;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.checkmarks-container {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding: 0 5px;
+}
+
+.checkmark-item {
+  color: #e5e7eb; /* Gray-200 (Abu-abu muda) */
+  transition: color 0.3s, transform 0.2s;
+}
+
+.checkmark-item.active {
+  color: #0d9488; /* Teal-600 (Berwarna) */
+  transform: scale(1.1);
+}
+
+.card-footer {
+  margin-top: auto;
+  text-align: center;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.claim-button {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background-color 0.2s;
+}
+
+.claim-button {
+  background-color: #0d9488; /* Teal-600 */
+  color: white;
+  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2);
+}
+
+.claim-button:hover {
+  background-color: #0f766e; /* Teal-700 */
+}
+
+.claim-button.disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: none;
+}

@@ -1,0 +1,36 @@
+:root {
+  --primary-color: #00B5AC;
+  --primary-hover: #00968e;
+  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --bg-color: #f3f4f6; /* Tailwind gray-100 */
+  --text-color: #1f2937; /* Tailwind gray-800 */
+  --border-color: #e5e7eb; /* Tailwind gray-200 */
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+  font-weight: 600;
+  color: #111827; /* Tailwind gray-900 */
+}
+
+button, input, select, textarea {
+  font-family: var(--font-family);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}

@@ -11,12 +11,17 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 3000, // Tampil selama 3 detik
+      launchShowDuration: 2000, // Tampil selama 3 detik
       launchAutoHide: true,
-      backgroundColor: "#ffffff", // Warna latar belakang (putih)
+      backgroundColor: "#0d9488", // Warna latar belakang splash screen
       showSpinner: true,
-      androidScaleType: "CENTER_CROP", // Memastikan gambar mengisi layar atau dipotong rapi
-      androidSplashResourceName: "splash" // Memastikan nama file yang dicari benar
+      androidSpinnerStyle: "large", // Menggunakan spinner ukuran besar
+      spinnerColor: "#ffffff" // Memberi warna putih agar terlihat jelas
+    },
+    StatusBar: {
+      overlaysWebView: false, // PENTING: Memaksa webview berada DI BAWAH status bar, bukan di belakangnya
+      backgroundColor: "#0d9488", // Menyamakan warna status bar dengan header aplikasi (Teal)
+      style: "DARK" // Mengatur ikon (jam, baterai) menjadi terang/putih (karena background gelap)
     }
   }
 };

@@ -16,9 +16,12 @@ import {
   Bell,
   Settings,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from 'lucide-react';
 import logoSaras from './assets/Logo.png';
+import './styles/SidebarMobile.css'; // Import CSS baru untuk responsif
 
 const menuItems = [
   { path: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -53,6 +56,12 @@ export default function Sidebar() {
   const location = useLocation();
   const [openMenus, setOpenMenus] = useState({});
   const [adminInfo, setAdminInfo] = useState(null);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Tutup sidebar otomatis saat pindah halaman (navigasi)
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location]);
 
   useEffect(() => {
     const fetchAdminInfo = async () => {
@@ -143,9 +152,27 @@ export default function Sidebar() {
   }, [adminInfo]);
 
   return (
-    <aside className="sidebar">
+    <>
+      {/* Tombol Hamburger (Hanya muncul di Mobile) */}
+      <button 
+        className="mobile-menu-toggle" 
+        onClick={() => setIsMobileOpen(true)}
+        aria-label="Buka Menu"
+      >
+        <Menu size={24} />
+      </button>
+
+      {/* Overlay Gelap saat menu terbuka */}
+      {isMobileOpen && (
+        <div className="sidebar-overlay" onClick={() => setIsMobileOpen(false)} />
+      )}
+
+      <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
-        <img src={logoSaras} alt="Logo Saras" className="sidebar-logo" />
+        <div className="header-top-row">
+          <img src={logoSaras} alt="Logo Saras" className="sidebar-logo" />
+          <button className="mobile-menu-close" onClick={() => setIsMobileOpen(false)}><X size={24} /></button>
+        </div>
         {adminInfo && (
           <div className="admin-info">
             <div className="admin-name">{adminInfo.nama}</div>
@@ -211,5 +238,6 @@ export default function Sidebar() {
         <button onClick={handleLogout} className="logout-button">Logout</button>
       </div>
     </aside>
+    </>
   );
 }

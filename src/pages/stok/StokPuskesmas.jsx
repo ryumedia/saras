@@ -29,6 +29,8 @@ export default function StokPuskesmas() {
   const [inventoryList, setInventoryList] = useState([]); // Stok milik Puskesmas ini
   const [sekolahList, setSekolahList] = useState([]);
   const [puskesmasList, setPuskesmasList] = useState([]); // Untuk Super Admin
+  const [masterObatList, setMasterObatList] = useState([]);
+  const [defaultObatId, setDefaultObatId] = useState(null); // ID Master Obat Default
   const [loading, setLoading] = useState(true);
   const [puskesmasId, setPuskesmasId] = useState(null);
   const [editId, setEditId] = useState(null);
@@ -39,7 +41,7 @@ export default function StokPuskesmas() {
   // State Filter
   const [filterYear, setFilterYear] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
-  const [searchObat, setSearchObat] = useState('');
+  const [filterObat, setFilterObat] = useState('');
   const [filterPuskesmas, setFilterPuskesmas] = useState('');
   
   // State Modal
@@ -83,7 +85,16 @@ export default function StokPuskesmas() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterYear, filterMonth, searchObat, filterPuskesmas]);
+  }, [filterYear, filterMonth, filterObat, filterPuskesmas]);
+
+  useEffect(() => {
+    if (masterObatList.length > 0) {
+        const defaultObat = masterObatList.find(o => o.isDefault);
+        if (defaultObat) {
+            setFilterObat(defaultObat.id);
+        }
+    }
+  }, [masterObatList]);
 
   // 2. Fetch Data Stok & Transaksi berdasarkan Puskesmas ID
   const fetchData = async (pId) => {
@@ -101,7 +112,9 @@ export default function StokPuskesmas() {
       const promises = [
         getDocs(qTransaksi),
         getDocs(qInventory),
-        getDocs(sekolahRef)
+        getDocs(sekolahRef),
+        getDocs(query(collection(db, "obat"), where("isDefault", "==", true))), // Fetch default obat
+        getDocs(collection(db, "obat")) // Fetch all master obat
       ];
 
       // Jika Super Admin, ambil juga daftar Puskesmas untuk dropdown/mapping nama
@@ -112,7 +125,8 @@ export default function StokPuskesmas() {
       }
 
       const results = await Promise.all(promises);
-      const [transaksiSnap, inventorySnap, sekolahSnap] = results;
+      const [transaksiSnap, inventorySnap, sekolahSnap, defaultObatSnap, masterObatSnap] = results;
+      const puskesmasResult = results[5];
 
       const trans = transaksiSnap.docs.map(d => ({ ...d.data(), id: d.id }));
       trans.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
@@ -120,13 +134,18 @@ export default function StokPuskesmas() {
       setTransaksiList(trans);
       setInventoryList(inventorySnap.docs.map(d => ({ ...d.data(), id: d.id })));
       setSekolahList(sekolahSnap.docs.map(d => ({ ...d.data(), id: d.id })));
+      setMasterObatList(masterObatSnap.docs.map(d => ({ ...d.data(), id: d.id })));
 
-      if (!pId && results[3] && results[3].docs) {
-        setPuskesmasList(results[3].docs.map(d => ({ ...d.data(), id: d.id })));
-      } else if (pId && results[3] && results[3].exists()) {
+      if (!defaultObatSnap.empty) {
+        setDefaultObatId(defaultObatSnap.docs[0].id);
+      }
+
+      if (!pId && puskesmasResult && puskesmasResult.docs) {
+        setPuskesmasList(puskesmasResult.docs.map(d => ({ ...d.data(), id: d.id })));
+      } else if (pId && puskesmasResult && puskesmasResult.exists()) {
         // Masukkan single puskesmas ke list agar bisa muncul di dropdown filter (locked)
-        const pData = results[3].data();
-        setPuskesmasList([{ ...pData, id: results[3].id }]);
+        const pData = puskesmasResult.data();
+        setPuskesmasList([{ ...pData, id: puskesmasResult.id }]);
       }
 
     } catch (err) {
@@ -150,12 +169,12 @@ export default function StokPuskesmas() {
 
       const matchYear = filterYear ? year === filterYear : true;
       const matchMonth = filterMonth ? month === filterMonth : true;
-      const matchObat = searchObat ? item.namaObat.toLowerCase().includes(searchObat.toLowerCase()) : true;
+      const matchObat = filterObat ? item.obatId === filterObat : true;
       const matchPuskesmas = filterPuskesmas ? item.puskesmasId === filterPuskesmas : true;
 
       return matchYear && matchMonth && matchObat && matchPuskesmas;
     });
-  }, [transaksiList, filterYear, filterMonth, searchObat, filterPuskesmas]);
+  }, [transaksiList, filterYear, filterMonth, filterObat, filterPuskesmas]);
 
   const summary = useMemo(() => {
     let masuk = 0;
@@ -191,10 +210,17 @@ export default function StokPuskesmas() {
   };
 
   const handleOpenModal = () => {
+    // Cari item inventory yang sesuai dengan defaultObatId
+    let preSelectedObatId = '';
+    // Hanya pre-select jika Admin Puskesmas (puskesmasId sudah pasti)
+    if (puskesmasId && defaultObatId) {
+      const invItem = inventoryList.find(inv => inv.obatId === defaultObatId && inv.puskesmasId === puskesmasId);
+      if (invItem) preSelectedObatId = invItem.id;
+    }
     setFormData({
       puskesmasId: puskesmasId || '', // Jika Admin Puskesmas, otomatis terisi
       tanggal: new Date().toISOString().split('T')[0],
-      obatId: '',
+      obatId: preSelectedObatId,
       jumlah: '',
       sekolahId: ''
     });
@@ -211,6 +237,16 @@ export default function StokPuskesmas() {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  // Auto-select obat default saat Puskesmas dipilih (khusus Super Admin di Modal)
+  useEffect(() => {
+    if (isModalOpen && !formData.obatId && defaultObatId && formData.puskesmasId) {
+      const invItem = inventoryList.find(inv => inv.obatId === defaultObatId && inv.puskesmasId === formData.puskesmasId);
+      if (invItem) {
+        setFormData(prev => ({ ...prev, obatId: invItem.id }));
+      }
+    }
+  }, [formData.puskesmasId, isModalOpen, defaultObatId, inventoryList]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -404,13 +440,10 @@ export default function StokPuskesmas() {
           {puskesmasList.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
         </select>
 
-        <input 
-          type="text" 
-          placeholder="Cari Nama Obat..." 
-          value={searchObat} 
-          onChange={e => setSearchObat(e.target.value)}
-          style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd', flex: 1, minWidth: '200px' }}
-        />
+        <select value={filterObat} onChange={e => setFilterObat(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd', flex: 1, minWidth: '200px' }}>
+          <option value="">Semua Obat</option>
+          {masterObatList.map(o => <option key={o.id} value={o.id}>{o.nama}</option>)}
+        </select>
       </div>
 
       {/* Summary Cards */}

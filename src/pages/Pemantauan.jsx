@@ -6,6 +6,7 @@ import '../styles/Pemantauan.css';
 export default function Pemantauan() {
   const [laporanList, setLaporanList] = useState([]);
   const [sekolahList, setSekolahList] = useState([]);
+  const [obatList, setObatList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -14,20 +15,30 @@ export default function Pemantauan() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [filterSekolah, setFilterSekolah] = useState('');
-  const [searchObat, setSearchObat] = useState('');
+  const [filterObat, setFilterObat] = useState('');
   const [searchNama, setSearchNama] = useState('');
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [startDate, endDate, filterSekolah, searchObat, searchNama]);
+  }, [startDate, endDate, filterSekolah, filterObat, searchNama]);
+
+  useEffect(() => {
+    if (obatList.length > 0) {
+        const defaultObat = obatList.find(o => o.isDefault);
+        if (defaultObat) {
+            setFilterObat(defaultObat.id);
+        }
+    }
+  }, [obatList]);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [laporanSnap, sekolahSnap] = await Promise.all([
+        const [laporanSnap, sekolahSnap, obatSnap] = await Promise.all([
           getDocs(collection(db, "laporan_minum_obat")),
-          getDocs(collection(db, "sekolah"))
+          getDocs(collection(db, "sekolah")),
+          getDocs(collection(db, "obat"))
         ]);
 
         const laporanData = laporanSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -39,6 +50,7 @@ export default function Pemantauan() {
 
         setLaporanList(laporanData);
         setSekolahList(sekolahSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setObatList(obatSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       } catch (err) {
         console.error("Error fetching data:", err);
         alert("Gagal mengambil data pemantauan.");
@@ -59,11 +71,11 @@ export default function Pemantauan() {
       const matchStartDate = startDate ? item.tanggalLapor >= startDate : true;
       const matchEndDate = endDate ? item.tanggalLapor <= endDate : true;
       const matchSekolah = filterSekolah ? item.sekolahId === filterSekolah : true;
-      const matchObat = searchObat ? (item.namaObat || '').toLowerCase().includes(searchObat.toLowerCase()) : true;
+      const matchObat = filterObat ? item.obatId === filterObat : true;
       const matchNama = searchNama ? (item.namaSiswa || '').toLowerCase().includes(searchNama.toLowerCase()) : true;
       return matchStartDate && matchEndDate && matchSekolah && matchObat && matchNama;
     });
-  }, [laporanList, startDate, endDate, filterSekolah, searchObat, searchNama]);
+  }, [laporanList, startDate, endDate, filterSekolah, filterObat, searchNama]);
 
   const summary = useMemo(() => {
     // 1. Jumlah Obat
@@ -126,11 +138,14 @@ export default function Pemantauan() {
       <div className="filters">
         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-        <select value={filterSekolah} onChange={e => setFilterSekolah(e.target.value)}>
+        <select value={filterSekolah} onChange={e => setFilterSekolah(e.target.value)} style={{ minWidth: '180px' }}>
           <option value="">Semua Sekolah</option>
           {sekolahList.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
         </select>
-        <input type="text" placeholder="Cari Nama Obat..." value={searchObat} onChange={e => setSearchObat(e.target.value)} />
+        <select value={filterObat} onChange={e => setFilterObat(e.target.value)} style={{ minWidth: '180px' }}>
+          <option value="">Semua Obat</option>
+          {obatList.map(o => <option key={o.id} value={o.id}>{o.nama}</option>)}
+        </select>
         <input type="text" placeholder="Cari Nama Siswa..." value={searchNama} onChange={e => setSearchNama(e.target.value)} />
       </div>
 

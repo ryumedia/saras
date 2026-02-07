@@ -30,6 +30,8 @@ export default function StokSekolah() {
   const [siswaList, setSiswaList] = useState([]);
   const [sekolahList, setSekolahList] = useState([]); // Untuk Super Admin
   const [puskesmasList, setPuskesmasList] = useState([]); // Untuk Filter Dropdown
+  const [masterObatList, setMasterObatList] = useState([]);
+  const [defaultObatId, setDefaultObatId] = useState(null); // ID Master Obat Default
   const [loading, setLoading] = useState(true);
   const [sekolahId, setSekolahId] = useState(null);
   const [editId, setEditId] = useState(null);
@@ -38,7 +40,7 @@ export default function StokSekolah() {
   // State Filter
   const [filterYear, setFilterYear] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
-  const [searchObat, setSearchObat] = useState('');
+  const [filterObat, setFilterObat] = useState('');
   const [filterPuskesmas, setFilterPuskesmas] = useState('');
   const [filterSekolah, setFilterSekolah] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,7 +99,16 @@ export default function StokSekolah() {
   // Reset halaman ke 1 saat filter berubah
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterYear, filterMonth, searchObat, filterPuskesmas, filterSekolah]);
+  }, [filterYear, filterMonth, filterObat, filterPuskesmas, filterSekolah]);
+
+  useEffect(() => {
+    if (masterObatList.length > 0) {
+        const defaultObat = masterObatList.find(o => o.isDefault);
+        if (defaultObat) {
+            setFilterObat(defaultObat.id);
+        }
+    }
+  }, [masterObatList]);
 
   // 2. Fetch Semua Data (Masuk & Keluar)
   const fetchData = async (id, role) => {
@@ -152,7 +163,9 @@ export default function StokSekolah() {
         getDocs(qPuskesmas),
         getDocs(qSekolahTrans),
         getDocs(qInventory),
-        getDocs(qSiswa)
+        getDocs(qSiswa),
+        getDocs(query(collection(db, "obat"), where("isDefault", "==", true))), // Fetch default obat
+        getDocs(collection(db, "obat")) // Fetch ALL master obat
       ];
 
       // Selalu ambil data puskesmas untuk mapping nama di filter
@@ -164,15 +177,23 @@ export default function StokSekolah() {
       }
 
       const results = await Promise.all(promises);
-      const [snapDinas, snapPuskesmas, snapSekolahTrans, snapInv, snapSiswa, snapPuskesmasList, snapSingleSekolah] = results;
+      const [snapDinas, snapPuskesmas, snapSekolahTrans, snapInv, snapSiswa, snapDefaultObat, snapMasterObat] = results;
+      const snapPuskesmasList = results[7];
+      const snapSingleSekolah = results[8]; // this might be undefined
 
-      setPuskesmasList(snapPuskesmasList.docs.map(d => ({ ...d.data(), id: d.id })));
+      if (snapPuskesmasList) setPuskesmasList(snapPuskesmasList.docs.map(d => ({ ...d.data(), id: d.id })));
 
       if (role === 'Super Admin' || role === 'Admin Puskesmas') {
         setSekolahList(fetchedSekolahList);
       } else if (role === 'Admin Sekolah' && snapSingleSekolah.exists()) {
         setSekolahList([{ ...snapSingleSekolah.data(), id: snapSingleSekolah.id }]);
       }
+
+      if (!snapDefaultObat.empty) {
+        setDefaultObatId(snapDefaultObat.docs[0].id);
+      }
+
+      setMasterObatList(snapMasterObat.docs.map(d => ({ ...d.data(), id: d.id })));
 
       // Normalisasi Data untuk Tabel
       let combinedData = [];
@@ -186,6 +207,7 @@ export default function StokSekolah() {
             id: doc.id,
             tanggal: d.tanggal,
             sekolahId: d.sasaranId, // Simpan ID sekolah untuk display
+            obatId: d.obatId,
             namaObat: d.namaObat,
             jumlah: d.jumlah,
             tipe: 'masuk',
@@ -203,6 +225,7 @@ export default function StokSekolah() {
             id: doc.id,
             tanggal: d.tanggal,
             sekolahId: d.sekolahId,
+            obatId: d.obatId,
             namaObat: d.namaObat,
             jumlah: d.jumlah,
             tipe: 'masuk',
@@ -256,7 +279,7 @@ export default function StokSekolah() {
 
       const matchYear = filterYear ? year === filterYear : true;
       const matchMonth = filterMonth ? month === filterMonth : true;
-      const matchObat = searchObat ? item.namaObat.toLowerCase().includes(searchObat.toLowerCase()) : true;
+      const matchObat = filterObat ? item.obatId === filterObat : true;
       const matchSekolah = filterSekolah ? item.sekolahId === filterSekolah : true;
       
       // Filter Puskesmas (Cek apakah sekolah dari transaksi ini milik puskesmas yang dipilih)
@@ -273,7 +296,7 @@ export default function StokSekolah() {
 
       return matchYear && matchMonth && matchObat && matchSekolah && matchPuskesmas;
     });
-  }, [transaksiList, filterYear, filterMonth, searchObat, filterSekolah, filterPuskesmas, sekolahList]);
+  }, [transaksiList, filterYear, filterMonth, filterObat, filterSekolah, filterPuskesmas, sekolahList]);
 
   const summary = useMemo(() => {
     let masuk = 0;
@@ -308,12 +331,30 @@ export default function StokSekolah() {
     setModalOpen(true);
   };
 
+  // Auto-select obat default saat Sekolah dipilih (khusus Super Admin/Admin Puskesmas di Modal)
+  useEffect(() => {
+    if (isModalOpen && !formData.obatId && defaultObatId && formData.sekolahId) {
+      const invItem = inventoryList.find(inv => inv.obatId === defaultObatId && inv.sekolahId === formData.sekolahId);
+      if (invItem) {
+        setFormData(prev => ({ ...prev, obatId: invItem.id }));
+      }
+    }
+  }, [formData.sekolahId, isModalOpen, defaultObatId, inventoryList]);
+
   // Handler Modal
   const handleOpenModal = () => {
+    // Cari item inventory yang sesuai dengan defaultObatId
+    let preSelectedObatId = '';
+    // Hanya pre-select jika Admin Sekolah (sekolahId sudah pasti)
+    if (sekolahId && defaultObatId) {
+      const invItem = inventoryList.find(inv => inv.obatId === defaultObatId);
+      if (invItem) preSelectedObatId = invItem.id;
+    }
+
     setFormData({
       sekolahId: sekolahId || '',
       tanggal: new Date().toISOString().split('T')[0],
-      obatId: '',
+      obatId: preSelectedObatId,
       jumlahPerSiswa: 1,
       selectedSiswa: []
     });
@@ -572,13 +613,10 @@ export default function StokSekolah() {
             .map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
         </select>
 
-        <input 
-          type="text" 
-          placeholder="Cari Nama Obat..." 
-          value={searchObat} 
-          onChange={e => setSearchObat(e.target.value)}
-          style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd', flex: 1, minWidth: '200px' }}
-        />
+        <select value={filterObat} onChange={e => setFilterObat(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd', flex: 1, minWidth: '200px' }}>
+          <option value="">Semua Obat</option>
+          {masterObatList.map(o => <option key={o.id} value={o.id}>{o.nama}</option>)}
+        </select>
       </div>
 
       {/* Summary Cards */}

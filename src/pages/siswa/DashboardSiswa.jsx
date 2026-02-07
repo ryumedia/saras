@@ -33,6 +33,7 @@ export default function DashboardSiswa() {
   const [poin, setPoin] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasReportedToday, setHasReportedToday] = useState(false);
+  const [defaultObatId, setDefaultObatId] = useState(null);
   
   const [isModalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -71,6 +72,12 @@ export default function DashboardSiswa() {
         const laporanSnap = await getDocs(qLaporan);
         setHasReportedToday(!laporanSnap.empty);
 
+        // 4. Ambil obat default
+        const qDefault = query(collection(db, "obat"), where("isDefault", "==", true));
+        const defaultSnap = await getDocs(qDefault);
+        if (!defaultSnap.empty) {
+          setDefaultObatId(defaultSnap.docs[0].id);
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -82,9 +89,15 @@ export default function DashboardSiswa() {
   }, [currentUser, currentUserData]);
 
   const handleOpenModal = () => {
+    let preSelectedObatId = '';
+    if (defaultObatId) {
+      const targetStok = stokList.find(s => s.obatId === defaultObatId && s.stok > 0);
+      if (targetStok) preSelectedObatId = targetStok.id;
+    }
+
     setFormData({
       tanggal: new Date().toISOString().split('T')[0],
-      obatId: '',
+      obatId: preSelectedObatId,
       jumlah: 1,
       confirmed: false
     });

@@ -36,7 +36,7 @@ export default function StokDinas() {
   // State Filter
   const [filterYear, setFilterYear] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
-  const [searchObat, setSearchObat] = useState('');
+  const [filterObat, setFilterObat] = useState('');
   
   // State Modal
   const [modalType, setModalType] = useState(null); // 'masuk' | 'keluar' | null
@@ -84,7 +84,16 @@ export default function StokDinas() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterYear, filterMonth, searchObat]);
+  }, [filterYear, filterMonth, filterObat]);
+
+  useEffect(() => {
+    if (obatList.length > 0) {
+        const defaultObat = obatList.find(o => o.isDefault);
+        if (defaultObat) {
+            setFilterObat(defaultObat.id);
+        }
+    }
+  }, [obatList]);
 
   // Logic Filter & Summary
   const years = useMemo(() => {
@@ -100,11 +109,11 @@ export default function StokDinas() {
 
       const matchYear = filterYear ? year === filterYear : true;
       const matchMonth = filterMonth ? month === filterMonth : true;
-      const matchObat = searchObat ? item.namaObat.toLowerCase().includes(searchObat.toLowerCase()) : true;
+      const matchObat = filterObat ? item.obatId === filterObat : true;
 
       return matchYear && matchMonth && matchObat;
     });
-  }, [transaksiList, filterYear, filterMonth, searchObat]);
+  }, [transaksiList, filterYear, filterMonth, filterObat]);
 
   const summary = useMemo(() => {
     let masuk = 0;
@@ -136,9 +145,12 @@ export default function StokDinas() {
 
   const handleOpenModal = (type) => {
     setModalType(type);
+    // Cari obat default
+    const defaultObat = obatList.find(o => o.isDefault);
+
     setFormData({
       tanggal: new Date().toISOString().split('T')[0],
-      obatId: '',
+      obatId: defaultObat ? defaultObat.id : '',
       jumlah: '',
       sasaranType: '',
       sasaranId: ''
@@ -419,13 +431,10 @@ export default function StokDinas() {
           <option value="12">Desember</option>
         </select>
 
-        <input 
-          type="text" 
-          placeholder="Cari Nama Obat..." 
-          value={searchObat} 
-          onChange={e => setSearchObat(e.target.value)}
-          style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd', flex: 1, minWidth: '200px' }}
-        />
+        <select value={filterObat} onChange={e => setFilterObat(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd', flex: 1, minWidth: '200px' }}>
+          <option value="">Semua Obat</option>
+          {obatList.map(o => <option key={o.id} value={o.id}>{o.nama}</option>)}
+        </select>
       </div>
 
       {/* Summary Cards */}

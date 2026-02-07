@@ -36,7 +36,8 @@ export default function DataObat() {
     nama: '',
     kategori: 'Umum',
     stok: 0,
-    satuan: 'Tablet'
+    satuan: 'Tablet',
+    isDefault: false
   });
 
   const obatCollectionRef = collection(db, "obat");
@@ -62,7 +63,7 @@ export default function DataObat() {
   // Handler Modal
   const handleOpenModal = () => {
     setEditId(null);
-    setFormData({ nama: '', kategori: 'Umum', stok: 0, satuan: 'Tablet' });
+    setFormData({ nama: '', kategori: 'Umum', stok: 0, satuan: 'Tablet', isDefault: false });
     setModalOpen(true);
   };
 
@@ -72,7 +73,8 @@ export default function DataObat() {
       nama: item.nama,
       kategori: item.kategori,
       stok: item.stok,
-      satuan: item.satuan
+      satuan: item.satuan,
+      isDefault: item.isDefault || false
     });
     setModalOpen(true);
   };
@@ -84,9 +86,10 @@ export default function DataObat() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const isCheckbox = e.target.type === 'checkbox';
     setFormData(prev => ({ 
       ...prev, 
-      [name]: name === 'stok' ? parseInt(value) || 0 : value 
+      [name]: isCheckbox ? e.target.checked : (name === 'stok' ? parseInt(value) || 0 : value)
     }));
   };
 
@@ -127,6 +130,37 @@ export default function DataObat() {
 
   return (
     <div className="data-obat-container">
+      {/* Inline Styles for Toggle Switch */}
+      <style>{`
+        .toggle-switch-custom {
+          position: relative;
+          display: flex;
+          align-items: center;
+          cursor: pointer;
+          width: auto;
+          margin-bottom: 5px;
+        }
+        .toggle-switch-custom input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .slider-custom {
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 24px;
+          background-color: #ccc;
+          border-radius: 34px;
+          transition: .4s;
+          flex-shrink: 0;
+        }
+        .slider-custom:before {
+          position: absolute;
+          content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+          background-color: white; border-radius: 50%; transition: .4s;
+        }
+        input:checked + .slider-custom { background-color: #0d9488; }
+        input:checked + .slider-custom:before { transform: translateX(20px); }
+        .toggle-label-custom { margin-left: 12px; font-weight: 500; color: #374151; }
+      `}</style>
+
       <div className="page-header">
         <h1>Data Obat</h1>
         <button className="add-button" onClick={handleOpenModal}>Tambah Obat</button>
@@ -141,6 +175,7 @@ export default function DataObat() {
               <th>Kategori</th>
               <th>Stok</th>
               <th>Satuan</th>
+              <th>Status</th>
               <th>Aksi</th>
             </tr>
           </thead>
@@ -152,6 +187,13 @@ export default function DataObat() {
                 <td>{item.kategori}</td>
                 <td>{item.stok}</td>
                 <td>{item.satuan}</td>
+                <td>
+                  {item.isDefault ? (
+                    <span style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85em', fontWeight: '600' }}>Default</span>
+                  ) : (
+                    <span style={{ color: '#9ca3af' }}>-</span>
+                  )}
+                </td>
                 <td>
                   <button className="action-button edit" onClick={() => handleEdit(item)}>Edit</button>
                   <button className="action-button delete" onClick={() => handleDelete(item.id)}>Hapus</button>
@@ -204,6 +246,22 @@ export default function DataObat() {
             <option value="Pcs">Pcs</option>
             <option value="Tube">Tube</option>
           </select>
+        </div>
+        <div className="input-group">
+          <label style={{ display: 'block', marginBottom: '8px' }}>Status Default</label>
+          <label className="toggle-switch-custom">
+            <input 
+              type="checkbox" 
+              name="isDefault" 
+              checked={formData.isDefault} 
+              onChange={handleInputChange} 
+            />
+            <span className="slider-custom"></span>
+            <span className="toggle-label-custom">Jadikan Obat Default</span>
+          </label>
+          <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '8px', lineHeight: '1.4' }}>
+            Obat default akan otomatis terpilih di menu input stok dan laporan siswa.
+          </p>
         </div>
       </Modal>
     </div>

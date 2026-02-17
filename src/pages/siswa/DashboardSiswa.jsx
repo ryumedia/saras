@@ -6,6 +6,7 @@ import { collection, addDoc, query, where, getDocs, serverTimestamp, updateDoc, 
 import '../../styles/Modal.css';
 import { Bell } from 'lucide-react';
 import { Award } from 'lucide-react';
+import logoSaras from '../../assets/sapaan.webp'; // Ganti dengan gambar ilustrasi Anda, misal: import helloImg from '../../assets/hello.png';
 
 const Modal = ({ isOpen, onClose, onSubmit, children, title }) => {
   if (!isOpen) return null;
@@ -139,28 +140,6 @@ export default function DashboardSiswa() {
     }
 
     try {
-      // Cek apakah sudah minum obat pekan ini
-      const date = new Date(formData.tanggal);
-      const day = date.getDay();
-      const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Senin sebagai awal pekan
-      const monday = new Date(date.setDate(diff));
-      const sunday = new Date(date.setDate(diff + 6));
-      
-      const startOfWeek = monday.toISOString().split('T')[0];
-      const endOfWeek = sunday.toISOString().split('T')[0];
-
-      const qCheck = query(collection(db, "laporan_minum_obat"), 
-        where("siswaId", "==", currentUser.uid),
-        where("tanggalLapor", ">=", startOfWeek),
-        where("tanggalLapor", "<=", endOfWeek)
-      );
-      
-      const checkSnap = await getDocs(qCheck);
-      if (!checkSnap.empty) {
-        alert("Kamu sudah minum obat pekan ini, jangan lupa minum obat lagi pekan depan");
-        return;
-      }
-
       // 1. Simpan laporan ke firestore (untuk riwayat)
       await addDoc(collection(db, "laporan_minum_obat"), {
         siswaId: currentUser.uid,
@@ -216,10 +195,21 @@ export default function DashboardSiswa() {
 
   return (
     <div className="p-4">
-      <div className="flex justify-between items-start mb-6">
+      <div style={{ 
+        backgroundColor: 'white', 
+        padding: '20px', 
+        borderRadius: '16px', 
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)', 
+        border: '1px solid #e5e7eb', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px' 
+      }}>
+        <img src={logoSaras} alt="Welcome" style={{ height: '100px', width: 'auto', objectFit: 'contain' }} />
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Hai, {currentUserData?.nama} 👋!</h1>
-          <p className="text-gray-500">Selamat datang kembali. Tetap sehat ya!</p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937', margin: '0 0 4px 0' }}>Hai, {currentUserData?.nama} 👋!</h1>
+          <p style={{ color: '#6b7280', margin: 0 }}>Selamat datang kembali. Tetap sehat ya!</p>
         </div>
       </div>
 

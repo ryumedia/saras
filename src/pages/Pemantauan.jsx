@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
 import '../styles/Pemantauan.css';
 
 export default function Pemantauan() {
@@ -64,6 +64,40 @@ export default function Pemantauan() {
   const getSekolahName = (id) => {
     const sekolah = sekolahList.find(s => s.id === id);
     return sekolah ? sekolah.nama : 'N/A';
+  };
+
+  const handleDelete = async (item) => {
+    if (window.confirm(`Yakin ingin menghapus laporan ini? Stok obat siswa akan dikembalikan.`)) {
+      try {
+        // 1. Kembalikan stok ke siswa (jika data obatId ada)
+        if (item.obatId && item.siswaId) {
+          const qStok = query(
+            collection(db, "siswa_stok"), 
+            where("siswaId", "==", item.siswaId),
+            where("obatId", "==", item.obatId)
+          );
+          const stokSnap = await getDocs(qStok);
+          
+          if (!stokSnap.empty) {
+            const stokDoc = stokSnap.docs[0];
+            const currentStok = parseInt(stokDoc.data().stok) || 0;
+            await updateDoc(stokDoc.ref, {
+              stok: currentStok + parseInt(item.jumlah)
+            });
+          }
+        }
+
+        // 2. Hapus dokumen laporan
+        await deleteDoc(doc(db, "laporan_minum_obat", item.id));
+
+        // 3. Update state lokal
+        setLaporanList(prev => prev.filter(l => l.id !== item.id));
+        
+      } catch (err) {
+        console.error("Error deleting report:", err);
+        alert("Gagal menghapus laporan.");
+      }
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -193,6 +227,7 @@ export default function Pemantauan() {
               <th>Sekolah</th>
               <th>Nama Obat</th>
               <th>Jumlah</th>
+              <th>Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -207,10 +242,26 @@ export default function Pemantauan() {
                   <td>{getSekolahName(item.sekolahId)}</td>
                   <td>{item.namaObat}</td>
                   <td>{item.jumlah}</td>
+                  <td>
+                    <button 
+                      onClick={() => handleDelete(item)}
+                      style={{
+                        backgroundColor: '#fee2e2', 
+                        color: '#dc2626', 
+                        border: '1px solid #fecaca', 
+                        padding: '4px 8px', 
+                        borderRadius: '4px', 
+                        cursor: 'pointer',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      Hapus
+                    </button>
+                  </td>
                 </tr>
               ))
             ) : (
-              <tr><td colSpan="6" style={{ textAlign: 'center' }}>Tidak ada data yang cocok.</td></tr>
+              <tr><td colSpan="7" style={{ textAlign: 'center' }}>Tidak ada data yang cocok.</td></tr>
             )}
           </tbody>
         </table>

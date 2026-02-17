@@ -18,7 +18,8 @@ import {
   ChevronDown,
   ChevronRight,
   Menu,
-  X
+  X,
+  Heart
 } from 'lucide-react';
 import logoSaras from './assets/Logo.png';
 import './styles/SidebarMobile.css'; // Import CSS baru untuk responsif
@@ -27,8 +28,17 @@ const menuItems = [
   { path: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { path: '/puskesmas', name: 'Data Puskesmas', icon: <Building2 size={20} /> },
   { path: '/sekolah', name: 'Data Sekolah', icon: <School size={20} /> },
+  { path: '/kelas', name: 'Data Kelas', icon: <Gift size={20} /> },
   { path: '/admin', name: 'Data Admin', icon: <UserCog size={20} /> },
   { path: '/siswa', name: 'Data Siswa', icon: <Users size={20} /> },
+  { 
+    name: 'Pemeriksaan HB', 
+    icon: <Heart size={20} />,
+    children: [
+      { path: '/hb/data', name: 'Data HB' },
+      { path: '/hb/pemeriksaan', name: 'Pemeriksaan HB' },
+    ]
+  },
   { 
     name: 'Stok Obat', 
     icon: <Pill size={20} />,
@@ -37,6 +47,7 @@ const menuItems = [
       { path: '/stok/dinas', name: 'Stok Dinas' },
       { path: '/stok/puskesmas', name: 'Stok Puskesmas' },
       { path: '/stok/sekolah', name: 'Stok Sekolah' },
+      { path: '/stok/kadaluarsa', name: 'Kadaluarsa' },
     ]
   },
   { path: '/pengingat', name: 'Pengingat', icon: <Bell size={20} /> },

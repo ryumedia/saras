@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { auth, db } from '../../firebase';
 import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { User, LogOut, Lock, Phone, Mail, School, Award, BookOpen, Shield } from 'lucide-react';
+import { User, LogOut, Lock, Phone, Mail, School, Award, BookOpen, Shield, MapPin, Calendar, Activity } from 'lucide-react';
 import '../../styles/ProfilSiswa.css';
 import '../../styles/Modal.css';
 
@@ -122,9 +122,23 @@ export default function ProfilSiswa() {
             <div className="profile-info">
               <h2 className="siswa-nama">{currentUserData.nama}</h2>
               <p className="siswa-email">{currentUserData.email}</p>
-              <div className="siswa-poin-badge">
-                <Award size={16} />
-                <span>{currentUserData.poin || 0} Poin</span>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
+                <div className="siswa-poin-badge">
+                  <Award size={16} />
+                  <span>{currentUserData.poin || 0} Poin</span>
+                </div>
+                {currentUserData.lastPemeriksaan && (
+                  <div style={{ 
+                    display: 'flex', alignItems: 'center', gap: '6px', 
+                    padding: '6px 12px', borderRadius: '20px', 
+                    backgroundColor: currentUserData.lastPemeriksaan.warna, 
+                    color: '#000', fontSize: '0.85rem', fontWeight: '600',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                  }}>
+                    <Activity size={16} />
+                    <span>{currentUserData.lastPemeriksaan.status}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -153,6 +167,48 @@ export default function ProfilSiswa() {
                 <p>{sekolahNama}</p>
               </div>
             </div>
+
+            <div className="info-item">
+              <div className="info-icon bg-pink-100 text-pink-600">
+                <Calendar size={20} />
+              </div>
+              <div className="info-text">
+                <label>Tempat, Tanggal Lahir</label>
+                <p>
+                  {currentUserData.tempatLahir ? `${currentUserData.tempatLahir}, ` : ''}
+                  {currentUserData.tanggalLahir || '-'}
+                </p>
+              </div>
+            </div>
+
+            <div className="info-item">
+              <div className="info-icon bg-gray-100 text-gray-600">
+                <MapPin size={20} />
+              </div>
+              <div className="info-text">
+                <label>Alamat</label>
+                <p>{currentUserData.alamat || '-'}</p>
+                {(currentUserData.desa || currentUserData.kecamatan) && (
+                  <p style={{ fontSize: '0.85em', color: '#666', marginTop: '2px' }}>
+                    {currentUserData.desa ? `Desa ${currentUserData.desa}` : ''}
+                    {currentUserData.desa && currentUserData.kecamatan ? ', ' : ''}
+                    {currentUserData.kecamatan ? `Kec. ${currentUserData.kecamatan}` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {currentUserData.lastPemeriksaan && (
+              <div className="info-item">
+                <div className="info-icon bg-red-100 text-red-600">
+                  <Activity size={20} />
+                </div>
+                <div className="info-text">
+                  <label>Pemeriksaan HB Terakhir</label>
+                  <p>{currentUserData.lastPemeriksaan.kadarHB} <span style={{ fontSize: '0.85em', color: '#666' }}>({currentUserData.lastPemeriksaan.tanggal})</span></p>
+                </div>
+              </div>
+            )}
 
             <div className="info-item">
               <div className="info-icon bg-purple-100 text-purple-600">

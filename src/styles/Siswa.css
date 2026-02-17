@@ -106,6 +106,12 @@
   border-color: #fecaca;
 }
 
+.action-button.view {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
 /* Status Badges */
 .status-badge {
   padding: 0.25rem 0.5rem;
@@ -127,4 +133,30 @@
 .status-badge.lulus {
   background-color: #dbeafe;
   color: #1e40af;
+}
+
+/* Detail View Styles */
+.detail-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 8px;
+}
+
+.detail-row label {
+  font-weight: 600;
+  color: #555;
+  width: 40%;
+}
+
+.detail-row span {
+  width: 60%;
+  text-align: right;
+  color: #333;
 }

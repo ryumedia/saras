@@ -3,6 +3,7 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 const fetch = require("node-fetch");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -135,3 +136,33 @@ exports.kirimPengingatOtomatis = onSchedule(
       console.log("Semua proses pengiriman selesai.");
     },
 );
+
+// Fungsi untuk update email user di Firebase Auth
+exports.updateUserEmail = onCall({region: "asia-southeast2"}, async (request) => {
+  const {uid, email} = request.data;
+  if (!uid || !email) {
+    throw new HttpsError("invalid-argument", "UID dan email diperlukan.");
+  }
+
+  try {
+    await admin.auth().updateUser(uid, {email: email});
+    return {success: true};
+  } catch (error) {
+    throw new HttpsError("internal", error.message);
+  }
+});
+
+// Fungsi untuk menghapus user di Firebase Auth
+exports.deleteUserAccount = onCall({region: "asia-southeast2"}, async (request) => {
+  const {uid} = request.data;
+  if (!uid) {
+    throw new HttpsError("invalid-argument", "UID diperlukan.");
+  }
+
+  try {
+    await admin.auth().deleteUser(uid);
+    return {success: true};
+  } catch (error) {
+    throw new HttpsError("internal", error.message);
+  }
+});

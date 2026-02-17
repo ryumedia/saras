@@ -35,7 +35,15 @@ export default function Sekolah() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setModalOpen] = useState(false);
-  const [newSekolah, setNewSekolah] = useState({ nama: '', alamat: '', kepala: '', puskesmasId: '' });
+  const [newSekolah, setNewSekolah] = useState({ 
+    nama: '', 
+    alamat: '', 
+    desa: '', 
+    kecamatan: '', 
+    kota: '', 
+    kepala: '', 
+    puskesmasId: '' 
+  });
   const [editId, setEditId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -81,7 +89,15 @@ export default function Sekolah() {
 
   const handleOpenModal = () => {
     setEditId(null);
-    const initialData = { nama: '', alamat: '', kepala: '', puskesmasId: '' };
+    const initialData = { 
+      nama: '', 
+      alamat: '', 
+      desa: '', 
+      kecamatan: '', 
+      kota: '', 
+      kepala: '', 
+      puskesmasId: '' 
+    };
     // Otomatis isi puskesmas jika yang login adalah Admin Puskesmas
     if (currentUserData?.role === 'Admin Puskesmas') {
       initialData.puskesmasId = currentUserData.relatedId;
@@ -92,7 +108,15 @@ export default function Sekolah() {
 
   const handleCloseModal = () => {
     setModalOpen(false);
-    setNewSekolah({ nama: '', alamat: '', kepala: '', puskesmasId: '' }); // Reset form
+    setNewSekolah({ 
+      nama: '', 
+      alamat: '', 
+      desa: '', 
+      kecamatan: '', 
+      kota: '', 
+      kepala: '', 
+      puskesmasId: '' 
+    }); // Reset form
     setEditId(null);
   };
 
@@ -125,7 +149,15 @@ export default function Sekolah() {
 
   const handleEditSekolah = (item) => {
     setEditId(item.id);
-    setNewSekolah({ nama: item.nama, alamat: item.alamat, kepala: item.kepala, puskesmasId: item.puskesmasId || '' });
+    setNewSekolah({ 
+      nama: item.nama, 
+      alamat: item.alamat, 
+      desa: item.desa || '', 
+      kecamatan: item.kecamatan || '', 
+      kota: item.kota || '', 
+      kepala: item.kepala, 
+      puskesmasId: item.puskesmasId || '' 
+    });
     setModalOpen(true);
   };
 
@@ -180,6 +212,9 @@ export default function Sekolah() {
                 <th>No</th>
                 <th>Nama Sekolah</th>
                 <th>Alamat</th>
+                <th>Desa/Kel</th>
+                <th>Kecamatan</th>
+                <th>Kota/Kab</th>
                 <th>Kepala Sekolah</th>
                 <th>Puskesmas Pembina</th>
                 <th>Aksi</th>
@@ -191,6 +226,9 @@ export default function Sekolah() {
                   <td>{indexOfFirstItem + index + 1}</td>
                   <td>{item.nama}</td>
                   <td>{item.alamat}</td>
+                  <td>{item.desa || '-'}</td>
+                  <td>{item.kecamatan || '-'}</td>
+                  <td>{item.kota || '-'}</td>
                   <td>{item.kepala}</td>
                   <td>{getPuskesmasName(item.puskesmasId)}</td>
                   <td>
@@ -218,8 +256,20 @@ export default function Sekolah() {
           <input type="text" id="nama" name="nama" value={newSekolah.nama} onChange={handleInputChange} required />
         </div>
         <div className="input-group">
-          <label htmlFor="alamat">Alamat</label>
+          <label htmlFor="alamat">Alamat (Jalan/RT/RW)</label>
           <input type="text" id="alamat" name="alamat" value={newSekolah.alamat} onChange={handleInputChange} required />
+        </div>
+        <div className="input-group">
+          <label htmlFor="desa">Desa/Kelurahan</label>
+          <input type="text" id="desa" name="desa" value={newSekolah.desa} onChange={handleInputChange} />
+        </div>
+        <div className="input-group">
+          <label htmlFor="kecamatan">Kecamatan</label>
+          <input type="text" id="kecamatan" name="kecamatan" value={newSekolah.kecamatan} onChange={handleInputChange} />
+        </div>
+        <div className="input-group">
+          <label htmlFor="kota">Kota/Kabupaten</label>
+          <input type="text" id="kota" name="kota" value={newSekolah.kota} onChange={handleInputChange} />
         </div>
         <div className="input-group">
           <label htmlFor="kepala">Kepala Sekolah</label>

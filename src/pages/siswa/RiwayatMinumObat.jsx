@@ -8,53 +8,77 @@ import '../../styles/Riwayat.css';
 export default function RiwayatMinumObat() {
   const { currentUser } = useAuth();
   const [riwayat, setRiwayat] = useState([]);
+  const [distribusi, setDistribusi] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterYear, setFilterYear] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
 
   useEffect(() => {
-    const fetchRiwayat = async () => {
+    const fetchData = async () => {
       if (!currentUser) return;
 
       setLoading(true);
       try {
-        // Ambil data laporan minum obat milik siswa yang sedang login
-        const q = query(
+        // 1. Ambil data laporan minum obat milik siswa yang sedang login
+        const qRiwayat = query(
           collection(db, "laporan_minum_obat"),
           where("siswaId", "==", currentUser.uid)
           // Note: Jika ingin sorting by timestamp di Firestore bersamaan dengan where,
           // biasanya perlu Composite Index. Jika error, hapus orderBy dan sort manual di JS.
         );
 
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => ({
+        // 2. Ambil data distribusi obat (sekolah_transaksi) yang melibatkan siswa ini
+        const qDistribusi = query(
+          collection(db, "sekolah_transaksi"),
+          where("siswaIds", "array-contains", currentUser.uid)
+        );
+
+        const [snapRiwayat, snapDistribusi] = await Promise.all([
+          getDocs(qRiwayat),
+          getDocs(qDistribusi)
+        ]);
+
+        const dataRiwayat = snapRiwayat.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
 
         // Sort manual (terbaru di atas) untuk menghindari masalah index Firestore
-        data.sort((a, b) => {
-            const dateA = a.timestamp ? a.timestamp.toDate() : new Date(a.tanggalLapor);
-            const dateB = b.timestamp ? b.timestamp.toDate() : new Date(b.tanggalLapor);
-            return dateB - dateA;
+        dataRiwayat.sort((a, b) => {
+            const dateA = new Date(a.tanggalLapor);
+            const dateB = new Date(b.tanggalLapor);
+            // Jika tanggal sama, urutkan berdasarkan waktu input (timestamp)
+            if (dateA.getTime() === dateB.getTime() && a.timestamp && b.timestamp) {
+                return b.timestamp.toDate() - a.timestamp.toDate();
+            }
+            return dateB - dateA; // Descending (Terbaru ke Terlama)
         });
 
-        setRiwayat(data);
+        setRiwayat(dataRiwayat);
+
+        const dataDistribusi = snapDistribusi.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setDistribusi(dataDistribusi);
+
       } catch (error) {
-        console.error("Error fetching history:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchRiwayat();
+    fetchData();
   }, [currentUser]);
 
   // Ambil daftar tahun unik dari data
   const years = useMemo(() => {
-    const uniqueYears = new Set(riwayat.map(item => new Date(item.tanggalLapor).getFullYear()));
+    const yearsRiwayat = riwayat.map(item => new Date(item.tanggalLapor).getFullYear());
+    const yearsDistribusi = distribusi.map(item => new Date(item.tanggal).getFullYear());
+    const uniqueYears = new Set([...yearsRiwayat, ...yearsDistribusi]);
     return Array.from(uniqueYears).sort((a, b) => b - a);
-  }, [riwayat]);
+  }, [riwayat, distribusi]);
 
   // Filter data berdasarkan Bulan dan Tahun
   const filteredRiwayat = useMemo(() => {
@@ -69,6 +93,27 @@ export default function RiwayatMinumObat() {
       return matchYear && matchMonth;
     });
   }, [riwayat, filterYear, filterMonth]);
+
+  const filteredDistribusi = useMemo(() => {
+    return distribusi.filter(item => {
+      const date = new Date(item.tanggal);
+      const year = date.getFullYear().toString();
+      const month = (date.getMonth() + 1).toString();
+
+      const matchYear = filterYear ? year === filterYear : true;
+      const matchMonth = filterMonth ? month === filterMonth : true;
+
+      return matchYear && matchMonth;
+    });
+  }, [distribusi, filterYear, filterMonth]);
+
+  const totalDisalurkan = useMemo(() => {
+    return filteredDistribusi.reduce((acc, curr) => acc + (parseInt(curr.jumlahPerSiswa) || 0), 0);
+  }, [filteredDistribusi]);
+
+  const totalObat = useMemo(() => {
+    return filteredRiwayat.reduce((acc, curr) => acc + (parseInt(curr.jumlah) || 0), 0);
+  }, [filteredRiwayat]);
 
 
   if (loading) {
@@ -122,6 +167,16 @@ export default function RiwayatMinumObat() {
             <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
           </div>
         </div>
+      </div>
+
+      <div style={{ marginBottom: '10px', padding: '12px 16px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', color: '#1e40af', fontWeight: '600', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>Jumlah Obat Disalurkan</span>
+        <span style={{ fontSize: '1.1em' }}>{totalDisalurkan} Tablet</span>
+      </div>
+
+      <div style={{ marginBottom: '16px', padding: '12px 16px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', color: '#166534', fontWeight: '600', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>Total Obat Diminum</span>
+        <span style={{ fontSize: '1.1em' }}>{totalObat} Tablet</span>
       </div>
 
       {filteredRiwayat.length === 0 ? (

@@ -64,6 +64,7 @@ export default function StokSekolah() {
   // Referensi untuk data masuk (Read Only)
   const stokDinasRef = collection(db, "stok_dinas");
   const puskesmasTransaksiRef = collection(db, "puskesmas_transaksi");
+  const laporanKadaluarsaRef = collection(db, "laporan_kadaluarsa");
 
   // 1. Identifikasi Sekolah dari Login
   useEffect(() => {
@@ -119,6 +120,7 @@ export default function StokSekolah() {
       let qSekolahTrans = sekolahTransaksiRef;
       let qInventory = sekolahStokRef;
       let qSiswa = siswaRef;
+      let qKadaluarsa = laporanKadaluarsaRef;
       
       let fetchedSekolahList = [];
 
@@ -139,6 +141,7 @@ export default function StokSekolah() {
           qSekolahTrans = query(sekolahTransaksiRef, where("sekolahId", "in", schoolIds));
           qInventory = query(sekolahStokRef, where("sekolahId", "in", schoolIds));
           qSiswa = query(siswaRef, where("sekolahId", "in", schoolIds));
+          qKadaluarsa = query(laporanKadaluarsaRef, where("sekolahId", "in", schoolIds));
         } else {
           // Tidak ada sekolah binaan
           const puskesmasSnap = await getDocs(collection(db, "puskesmas"));
@@ -156,6 +159,7 @@ export default function StokSekolah() {
         qSekolahTrans = query(sekolahTransaksiRef, where("sekolahId", "==", id));
         qInventory = query(sekolahStokRef, where("sekolahId", "==", id));
         qSiswa = query(siswaRef, where("sekolahId", "==", id));
+        qKadaluarsa = query(laporanKadaluarsaRef, where("sekolahId", "==", id));
       }
 
       const promises = [
@@ -164,8 +168,9 @@ export default function StokSekolah() {
         getDocs(qSekolahTrans),
         getDocs(qInventory),
         getDocs(qSiswa),
-        getDocs(query(collection(db, "obat"), where("isDefault", "==", true))), // Fetch default obat
-        getDocs(collection(db, "obat")) // Fetch ALL master obat
+        getDocs(query(collection(db, "obat"), where("isDefault", "==", true))),
+        getDocs(collection(db, "obat")),
+        getDocs(qKadaluarsa)
       ];
 
       // Selalu ambil data puskesmas untuk mapping nama di filter
@@ -177,9 +182,9 @@ export default function StokSekolah() {
       }
 
       const results = await Promise.all(promises);
-      const [snapDinas, snapPuskesmas, snapSekolahTrans, snapInv, snapSiswa, snapDefaultObat, snapMasterObat] = results;
-      const snapPuskesmasList = results[7];
-      const snapSingleSekolah = results[8]; // this might be undefined
+      const [snapDinas, snapPuskesmas, snapSekolahTrans, snapInv, snapSiswa, snapDefaultObat, snapMasterObat, snapKadaluarsa] = results;
+      const snapPuskesmasList = results[8];
+      const snapSingleSekolah = results[9];
 
       if (snapPuskesmasList) setPuskesmasList(snapPuskesmasList.docs.map(d => ({ ...d.data(), id: d.id })));
 
@@ -251,6 +256,21 @@ export default function StokSekolah() {
         });
       });
 
+      // Data Kadaluarsa
+      snapKadaluarsa.forEach(doc => {
+        const d = doc.data();
+        combinedData.push({
+          id: doc.id,
+          tanggal: d.tanggalLapor,
+          sekolahId: d.sekolahId,
+          namaObat: d.namaObat,
+          jumlah: d.jumlah,
+          tipe: 'kadaluarsa',
+          sumber: 'Laporan Kadaluarsa',
+          obatId: d.obatId
+        });
+      });
+
       // Sort berdasarkan tanggal (Terbaru diatas)
       combinedData.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
 
@@ -301,11 +321,13 @@ export default function StokSekolah() {
   const summary = useMemo(() => {
     let masuk = 0;
     let keluar = 0;
+    let kadaluarsa = 0;
     filteredData.forEach(item => {
       if (item.tipe === 'masuk') masuk += item.jumlah;
       if (item.tipe === 'keluar') keluar += item.jumlah;
+      if (item.tipe === 'kadaluarsa') kadaluarsa += item.jumlah;
     });
-    return { masuk, keluar, sisa: masuk - keluar };
+    return { masuk, keluar, kadaluarsa, sisa: masuk - keluar - kadaluarsa };
   }, [filteredData]);
 
   // Pagination Logic
@@ -367,6 +389,13 @@ export default function StokSekolah() {
     setEditingItem(null);
   };
 
+  // Filter siswa untuk modal (berdasarkan sekolah yang dipilih)
+  const modalSiswaList = useMemo(() => {
+    const targetSekolahId = sekolahId || formData.sekolahId;
+    if (!targetSekolahId) return [];
+    return siswaList.filter(s => !sekolahId ? s.sekolahId === targetSekolahId : true);
+  }, [siswaList, sekolahId, formData.sekolahId]);
+
   // Handler Checkbox Siswa
   const handleToggleSiswa = (id) => {
     setFormData(prev => {
@@ -381,7 +410,7 @@ export default function StokSekolah() {
 
   const handleSelectAllSiswa = (e) => {
     if (e.target.checked) {
-      setFormData(prev => ({ ...prev, selectedSiswa: siswaList.map(s => s.id) }));
+      setFormData(prev => ({ ...prev, selectedSiswa: modalSiswaList.map(s => s.id) }));
     } else {
       setFormData(prev => ({ ...prev, selectedSiswa: [] }));
     }
@@ -629,6 +658,10 @@ export default function StokSekolah() {
           <h3 style={{ margin: '0 0 10px 0', color: '#991B1B', fontSize: '1rem' }}>Jumlah Keluar</h3>
           <p style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', color: '#991B1B' }}>{summary.keluar}</p>
         </div>
+        <div className="card" style={{ flex: 1, padding: '20px', background: '#FFEDD5', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', minWidth: '200px' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#9A3412', fontSize: '1rem' }}>Obat Kadaluarsa</h3>
+          <p style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', color: '#9A3412' }}>{summary.kadaluarsa}</p>
+        </div>
         <div className="card" style={{ flex: 1, padding: '20px', background: '#DBEAFE', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', minWidth: '200px' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#1E40AF', fontSize: '1rem' }}>Selisih / Sisa</h3>
           <p style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold', color: '#1E40AF' }}>{summary.sisa}</p>
@@ -659,10 +692,10 @@ export default function StokSekolah() {
                 <td>
                   <span style={{ 
                     padding: '4px 8px', borderRadius: '4px', fontSize: '0.85em',
-                    backgroundColor: item.tipe === 'masuk' ? '#D1FAE5' : '#FEE2E2',
-                    color: item.tipe === 'masuk' ? '#065F46' : '#991B1B'
+                    backgroundColor: item.tipe === 'masuk' ? '#D1FAE5' : (item.tipe === 'kadaluarsa' ? '#FFEDD5' : '#FEE2E2'),
+                    color: item.tipe === 'masuk' ? '#065F46' : (item.tipe === 'kadaluarsa' ? '#9A3412' : '#991B1B')
                   }}>
-                    {item.tipe === 'masuk' ? 'Masuk' : 'Keluar'}
+                    {item.tipe === 'masuk' ? 'Masuk' : (item.tipe === 'kadaluarsa' ? 'Kadaluarsa' : 'Keluar')}
                   </span>
                 </td>
                 <td>{item.jumlah}</td>
@@ -729,11 +762,11 @@ export default function StokSekolah() {
               <input 
                 type="checkbox" 
                 onChange={handleSelectAllSiswa}
-                checked={siswaList.length > 0 && formData.selectedSiswa.length === siswaList.length}
+                checked={modalSiswaList.length > 0 && formData.selectedSiswa.length === modalSiswaList.length}
               />
               <span>Pilih Semua Siswa</span>
             </label>
-            {siswaList.filter(s => !sekolahId ? s.sekolahId === formData.sekolahId : true).map(siswa => (
+            {modalSiswaList.map(siswa => (
               <div key={siswa.id}>
                 <label className="checkbox-item">
                   <input 
@@ -745,7 +778,7 @@ export default function StokSekolah() {
                 </label>
               </div>
             ))}
-            {siswaList.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>Belum ada data siswa.</p>}
+            {modalSiswaList.length === 0 && <p style={{ color: '#888', fontStyle: 'italic' }}>Belum ada data siswa.</p>}
           </div>
         </div>
       </Modal>

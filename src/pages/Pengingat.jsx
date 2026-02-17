@@ -4,13 +4,16 @@ import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firesto
 import { useAuth } from '../context/AuthContext';
 import { Send } from 'lucide-react';
 import '../styles/Pemantauan.css'; // Menggunakan style tabel yang sudah ada
+import * as XLSX from 'xlsx';
 
 export default function Pengingat() {
   const { currentUserData } = useAuth();
   const [students, setStudents] = useState([]);
   const [puskesmasList, setPuskesmasList] = useState([]);
   const [sekolahList, setSekolahList] = useState([]);
+  const [kelasList, setKelasList] = useState([]);
   const [reports, setReports] = useState([]);
+  const [distributions, setDistributions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -23,7 +26,20 @@ export default function Pengingat() {
   const itemsPerPage = 10;
   const [sendingId, setSendingId] = useState(null);
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const academicMonths = [
+    { name: 'Jul', idx: 6, yearOffset: 0 },
+    { name: 'Agu', idx: 7, yearOffset: 0 },
+    { name: 'Sep', idx: 8, yearOffset: 0 },
+    { name: 'Okt', idx: 9, yearOffset: 0 },
+    { name: 'Nov', idx: 10, yearOffset: 0 },
+    { name: 'Des', idx: 11, yearOffset: 0 },
+    { name: 'Jan', idx: 0, yearOffset: 1 },
+    { name: 'Feb', idx: 1, yearOffset: 1 },
+    { name: 'Mar', idx: 2, yearOffset: 1 },
+    { name: 'Apr', idx: 3, yearOffset: 1 },
+    { name: 'Mei', idx: 4, yearOffset: 1 },
+    { name: 'Jun', idx: 5, yearOffset: 1 },
+  ];
 
   // Generate opsi tahun (2 tahun ke belakang s.d 1 tahun ke depan)
   const yearOptions = useMemo(() => {
@@ -62,13 +78,15 @@ export default function Pengingat() {
       setLoading(true);
       try {
         // 1. Ambil Data Master (Sekolah & Puskesmas)
-        const [sekolahSnap, puskesmasSnap] = await Promise.all([
+        const [sekolahSnap, puskesmasSnap, kelasSnap] = await Promise.all([
           getDocs(collection(db, "sekolah")),
-          getDocs(collection(db, "puskesmas"))
+          getDocs(collection(db, "puskesmas")),
+          getDocs(collection(db, "kelas"))
         ]);
         
         setSekolahList(sekolahSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setPuskesmasList(puskesmasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setKelasList(kelasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
         // 2. Ambil Data Siswa Berdasarkan Role
         let qSiswa = collection(db, "siswa");
@@ -103,19 +121,29 @@ export default function Pengingat() {
 
         setStudents(fetchedStudents);
 
-        // 3. Ambil Laporan Minum Obat Tahun Terpilih
-        const startStr = `${selectedYear}-01-01`;
-        const endStr = `${selectedYear}-12-31`; // Fix: Tambahkan tahun
+        // 3. Ambil Laporan & Distribusi Tahun Ajaran Terpilih (Juli - Juni)
+        const startStr = `${selectedYear}-07-01`;
+        const endStr = `${selectedYear + 1}-06-30`;
         
         const qReports = query(
             collection(db, "laporan_minum_obat"),
             where("tanggalLapor", ">=", startStr),
             where("tanggalLapor", "<=", endStr)
         );
+        
+        const qDist = query(
+            collection(db, "sekolah_transaksi"),
+            where("tanggal", ">=", startStr),
+            where("tanggal", "<=", endStr),
+            where("tipe", "==", "keluar")
+        );
 
-        const reportsSnap = await getDocs(qReports);
-        const reportsData = reportsSnap.docs.map(doc => doc.data());
-        setReports(reportsData);
+        const [reportsSnap, distSnap] = await Promise.all([
+            getDocs(qReports),
+            getDocs(qDist)
+        ]);
+        setReports(reportsSnap.docs.map(doc => doc.data()));
+        setDistributions(distSnap.docs.map(doc => doc.data()));
 
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -149,21 +177,57 @@ export default function Pengingat() {
     filteredStudents.forEach(s => {
       data[s.id] = {
         student: s,
-        months: Array(12).fill(0)
+        months: Array(12).fill(null).map(() => ({ received: 0, consumed: 0 })),
+        totalReceived: 0,
+        totalConsumed: 0
       };
     });
 
-    // Isi dengan data laporan
+    // Isi dengan data laporan (Diminum)
     reports.forEach(r => {
       if (data[r.siswaId]) {
         const date = new Date(r.tanggalLapor);
-        const monthIdx = date.getMonth(); // 0-11
-        data[r.siswaId].months[monthIdx] += (parseInt(r.jumlah) || 0);
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        
+        // Mapping bulan kalender ke indeks tahun ajaran (0=Jul, 11=Jun)
+        let arrIdx = -1;
+        if (year === selectedYear && month >= 6) arrIdx = month - 6;
+        else if (year === selectedYear + 1 && month < 6) arrIdx = month + 6;
+
+        if (arrIdx !== -1) {
+            const qty = parseInt(r.jumlah) || 0;
+            data[r.siswaId].months[arrIdx].consumed += qty;
+            data[r.siswaId].totalConsumed += qty;
+        }
       }
     });
 
+    // Isi dengan data distribusi (Diterima)
+    distributions.forEach(d => {
+        if (d.siswaIds && Array.isArray(d.siswaIds)) {
+            const date = new Date(d.tanggal);
+            const month = date.getMonth();
+            const year = date.getFullYear();
+            
+            let arrIdx = -1;
+            if (year === selectedYear && month >= 6) arrIdx = month - 6;
+            else if (year === selectedYear + 1 && month < 6) arrIdx = month + 6;
+
+            d.siswaIds.forEach(sid => {
+                if (data[sid]) {
+                    const qty = parseInt(d.jumlahPerSiswa) || 0;
+                    if (arrIdx !== -1) {
+                        data[sid].months[arrIdx].received += qty;
+                    }
+                    data[sid].totalReceived += qty;
+                }
+            });
+        }
+    });
+
     return Object.values(data);
-  }, [students, reports, filterPuskesmas, filterSekolah, filterKelas, searchNama, sekolahList]);
+  }, [students, reports, distributions, filterPuskesmas, filterSekolah, filterKelas, searchNama, sekolahList, selectedYear]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -251,21 +315,76 @@ export default function Pengingat() {
     }
   };
 
+  const handleExportExcel = () => {
+    if (filteredData.length === 0) {
+      alert("Tidak ada data untuk diexport.");
+      return;
+    }
+
+    const data = filteredData.map((item, index) => {
+      const school = sekolahList.find(s => s.id === item.student.sekolahId);
+      const schoolName = school ? school.nama : '-';
+      
+      let className = item.student.kelas;
+      if (item.student.kelasId) {
+        const k = kelasList.find(k => k.id === item.student.kelasId);
+        if (k) className = k.namaKelas;
+      }
+
+      const row = {
+        'No': index + 1,
+        'Nama Siswa': item.student.nama,
+        'Sekolah': schoolName,
+        'Kelas': className,
+      };
+
+      item.months.forEach((monthData, idx) => {
+        const monthName = academicMonths[idx].name;
+        const yearSuffix = (selectedYear + academicMonths[idx].yearOffset).toString().slice(-2);
+        row[`${monthName} '${yearSuffix} (D)`] = monthData.received || 0;
+        row[`${monthName} '${yearSuffix} (M)`] = monthData.consumed || 0;
+      });
+
+      row['Total Diterima'] = item.totalReceived;
+      row['Total Diminum'] = item.totalConsumed;
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Data Pengingat");
+    XLSX.writeFile(wb, `Pengingat_Obat_${selectedYear}-${selectedYear + 1}.xlsx`);
+  };
+
   return (
     <div className="pemantauan-container"> {/* Menggunakan container style yang sama */}
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Pengingat Minum Obat</h1>
+        <button 
+          onClick={handleExportExcel}
+          style={{ 
+            backgroundColor: '#10b981', 
+            color: 'white', 
+            padding: '8px 16px', 
+            borderRadius: '6px', 
+            border: 'none', 
+            cursor: 'pointer', 
+            fontWeight: '600' 
+          }}
+        >
+          Export Excel
+        </button>
       </div>
 
       <div className="filters" style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <label style={{ fontWeight: 'bold' }}>Tahun:</label>
+          <label style={{ fontWeight: 'bold' }}>Tahun Ajaran:</label>
           <select 
             value={selectedYear} 
             onChange={e => setSelectedYear(parseInt(e.target.value))}
             style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ddd' }}
           >
-            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+            {yearOptions.map(y => <option key={y} value={y}>{y}-{y+1}</option>)}
           </select>
         </div>
 
@@ -311,14 +430,21 @@ export default function Pengingat() {
             <tr>
               <th rowSpan="2" style={{ verticalAlign: 'middle' }}>No</th>
               <th rowSpan="2" style={{ verticalAlign: 'middle' }}>Nama Siswa</th>
-              <th rowSpan="2" style={{ verticalAlign: 'middle' }}>Kelas</th>
-              <th rowSpan="2" style={{ verticalAlign: 'middle' }}>Sekolah</th>
-              <th colSpan="12" style={{ textAlign: 'center' }}>Bulan (Jumlah Obat)</th>
+              {academicMonths.map((m, i) => (
+                <th key={i} colSpan="2" style={{ textAlign: 'center', fontSize: '0.85em', padding: '5px' }}>
+                  {m.name} <br/><span style={{fontSize: '0.8em', color: '#666'}}>{(selectedYear + m.yearOffset).toString().slice(-2)}</span>
+                </th>
+              ))}
+              <th rowSpan="2" style={{ verticalAlign: 'middle', textAlign: 'center' }}>TD</th>
+              <th rowSpan="2" style={{ verticalAlign: 'middle', textAlign: 'center' }}>TM</th>
               <th rowSpan="2" style={{ verticalAlign: 'middle' }}>Aksi</th>
             </tr>
             <tr>
-              {months.map((m, i) => (
-                <th key={i} style={{ textAlign: 'center', fontSize: '0.85em', padding: '5px' }}>{m}</th>
+              {academicMonths.map((_, i) => (
+                <React.Fragment key={i}>
+                  <th style={{ textAlign: 'center', fontSize: '0.7em', padding: '2px', color: '#2563eb', minWidth: '25px' }}>D</th>
+                  <th style={{ textAlign: 'center', fontSize: '0.7em', padding: '2px', color: '#059669', minWidth: '25px' }}>M</th>
+                </React.Fragment>
               ))}
             </tr>
           </thead>
@@ -330,13 +456,18 @@ export default function Pengingat() {
                 <tr key={item.student.id}>
                   <td>{indexOfFirstItem + index + 1}</td>
                   <td>{item.student.nama}</td>
-                  <td>{item.student.kelas}</td>
-                  <td>{sekolahList.find(s => s.id === item.student.sekolahId)?.nama || '-'}</td>
-                  {item.months.map((count, idx) => (
-                    <td key={idx} style={{ textAlign: 'center', fontWeight: count > 0 ? 'bold' : 'normal', color: count > 0 ? '#059669' : '#9ca3af' }}>
-                      {count}
-                    </td>
+                  {item.months.map((monthData, idx) => (
+                    <React.Fragment key={idx}>
+                      <td style={{ textAlign: 'center', fontSize: '0.8em', color: monthData.received > 0 ? '#2563eb' : '#e5e7eb', padding: '4px' }}>
+                        {monthData.received || '-'}
+                      </td>
+                      <td style={{ textAlign: 'center', fontSize: '0.8em', fontWeight: monthData.consumed > 0 ? 'bold' : 'normal', color: monthData.consumed > 0 ? '#059669' : '#e5e7eb', padding: '4px' }}>
+                        {monthData.consumed || '-'}
+                      </td>
+                    </React.Fragment>
                   ))}
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#2563eb' }}>{item.totalReceived}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#059669' }}>{item.totalConsumed}</td>
                   <td style={{ textAlign: 'center' }}>
                     <button 
                       onClick={() => handleSendMessage(item.student)}

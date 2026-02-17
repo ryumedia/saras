@@ -61,6 +61,7 @@
   border: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .summary-card h3 {

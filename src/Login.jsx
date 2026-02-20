@@ -5,7 +5,7 @@ import { auth, db } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import './styles/Modal.css';
 import logoSaras from './assets/Logo.png';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -77,22 +77,33 @@ export default function Login() {
     <div className="login-container">
       <div className="login-box">
         <img src={logoSaras} alt="Logo Saras" className="login-logo" />
-        <h2>Login SARAS App</h2>
+        <h2>(SAhabat RemajA Sehat)</h2>
         <form onSubmit={handleLogin}>
           <div className="input-group">
             <label htmlFor="email">Email</label>
-            <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <div style={{ position: 'relative' }}>
+              <Mail size={20} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#045f5a' }} />
+              <input 
+                type="email" 
+                id="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                style={{ width: '100%', paddingLeft: '40px', boxSizing: 'border-box' }}
+              />
+            </div>
           </div>
           <div className="input-group">
             <label htmlFor="password">Password</label>
             <div style={{ position: 'relative' }}>
+              <Lock size={20} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#045f5a' }} />
               <input 
                 type={showPassword ? "text" : "password"} 
                 id="password" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 required 
-                style={{ width: '100%', paddingRight: '40px', boxSizing: 'border-box' }}
+                style={{ width: '100%', paddingLeft: '40px', paddingRight: '40px', boxSizing: 'border-box' }}
               />
               <button
                 type="button"
@@ -121,7 +132,7 @@ export default function Login() {
             <button 
               type="button" 
               onClick={() => setShowResetModal(true)}
-              style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '0.9rem', textDecoration: 'underline' }}
+              style={{ background: 'none', border: 'none', color: '#00B5AC', cursor: 'pointer', fontSize: '0.9rem', textDecoration: 'underline' }}
             >
               Lupa Password?
             </button>

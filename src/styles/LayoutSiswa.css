@@ -1,7 +1,7 @@
 .mobile-view-container {
   max-width: 448px; /* max-w-lg */
   margin: 0 auto;
-  background-color: #f9fafb; /* gray-50 */
+  background-color: #E6F8F7; /* gray-50 */
   min-height: 100vh;
   display: flex;
   flex-direction: column;

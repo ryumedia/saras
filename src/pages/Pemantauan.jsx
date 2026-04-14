@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
 import '../styles/Pemantauan.css';
 
 export default function Pemantauan() {
+  const { currentUserData } = useAuth();
   const [laporanList, setLaporanList] = useState([]);
   const [sekolahList, setSekolahList] = useState([]);
+  const [puskesmasList, setPuskesmasList] = useState([]);
   const [obatList, setObatList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -14,13 +17,14 @@ export default function Pemantauan() {
   // Filter states
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [filterPuskesmas, setFilterPuskesmas] = useState('');
   const [filterSekolah, setFilterSekolah] = useState('');
   const [filterObat, setFilterObat] = useState('');
   const [searchNama, setSearchNama] = useState('');
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [startDate, endDate, filterSekolah, filterObat, searchNama]);
+  }, [startDate, endDate, filterSekolah, filterObat, searchNama, filterPuskesmas]);
 
   useEffect(() => {
     if (obatList.length > 0) {
@@ -35,10 +39,11 @@ export default function Pemantauan() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [laporanSnap, sekolahSnap, obatSnap] = await Promise.all([
+        const [laporanSnap, sekolahSnap, obatSnap, puskesmasSnap] = await Promise.all([
           getDocs(collection(db, "laporan_minum_obat")),
           getDocs(collection(db, "sekolah")),
-          getDocs(collection(db, "obat"))
+          getDocs(collection(db, "obat")),
+          getDocs(collection(db, "puskesmas"))
         ]);
 
         const laporanData = laporanSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -51,6 +56,7 @@ export default function Pemantauan() {
         setLaporanList(laporanData);
         setSekolahList(sekolahSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setObatList(obatSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setPuskesmasList(puskesmasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       } catch (err) {
         console.error("Error fetching data:", err);
         alert("Gagal mengambil data pemantauan.");
@@ -60,6 +66,19 @@ export default function Pemantauan() {
     };
     fetchData();
   }, []);
+
+  // Set default filter berdasarkan role
+  useEffect(() => {
+    if (currentUserData) {
+      if (currentUserData.role === 'Admin Puskesmas') {
+        setFilterPuskesmas(currentUserData.relatedId);
+      } else if (currentUserData.role === 'Admin Sekolah') {
+        setFilterSekolah(currentUserData.relatedId);
+        const mySchool = sekolahList.find(s => s.id === currentUserData.relatedId);
+        if (mySchool) setFilterPuskesmas(mySchool.puskesmasId);
+      }
+    }
+  }, [currentUserData, sekolahList]);
 
   const getSekolahName = (id) => {
     const sekolah = sekolahList.find(s => s.id === id);
@@ -102,14 +121,18 @@ export default function Pemantauan() {
 
   const filteredData = useMemo(() => {
     return laporanList.filter(item => {
+      const school = sekolahList.find(s => s.id === item.sekolahId);
+      const puskesmasId = school ? school.puskesmasId : '';
+
+      const matchPuskesmas = filterPuskesmas ? puskesmasId === filterPuskesmas : true;
       const matchStartDate = startDate ? item.tanggalLapor >= startDate : true;
       const matchEndDate = endDate ? item.tanggalLapor <= endDate : true;
       const matchSekolah = filterSekolah ? item.sekolahId === filterSekolah : true;
       const matchObat = filterObat ? item.obatId === filterObat : true;
       const matchNama = searchNama ? (item.namaSiswa || '').toLowerCase().includes(searchNama.toLowerCase()) : true;
-      return matchStartDate && matchEndDate && matchSekolah && matchObat && matchNama;
+      return matchPuskesmas && matchStartDate && matchEndDate && matchSekolah && matchObat && matchNama;
     });
-  }, [laporanList, startDate, endDate, filterSekolah, filterObat, searchNama]);
+  }, [laporanList, startDate, endDate, filterSekolah, filterObat, searchNama, filterPuskesmas, sekolahList]);
 
   const summary = useMemo(() => {
     // 1. Jumlah Obat
@@ -172,9 +195,25 @@ export default function Pemantauan() {
       <div className="filters">
         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-        <select value={filterSekolah} onChange={e => setFilterSekolah(e.target.value)} style={{ minWidth: '180px' }}>
+        <select 
+          value={filterPuskesmas} 
+          onChange={e => { setFilterPuskesmas(e.target.value); setFilterSekolah(''); }} 
+          disabled={currentUserData?.role === 'Admin Puskesmas' || currentUserData?.role === 'Admin Sekolah'}
+          style={{ minWidth: '180px', backgroundColor: (currentUserData?.role === 'Admin Puskesmas' || currentUserData?.role === 'Admin Sekolah') ? '#f3f4f6' : 'white' }}
+        >
+          <option value="">Semua Puskesmas</option>
+          {puskesmasList.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
+        </select>
+        <select 
+          value={filterSekolah} 
+          onChange={e => setFilterSekolah(e.target.value)} 
+          disabled={currentUserData?.role === 'Admin Sekolah'}
+          style={{ minWidth: '180px', backgroundColor: currentUserData?.role === 'Admin Sekolah' ? '#f3f4f6' : 'white' }}
+        >
           <option value="">Semua Sekolah</option>
-          {sekolahList.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
+          {sekolahList
+            .filter(s => !filterPuskesmas || s.puskesmasId === filterPuskesmas)
+            .map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
         </select>
         <select value={filterObat} onChange={e => setFilterObat(e.target.value)} style={{ minWidth: '180px' }}>
           <option value="">Semua Obat</option>

@@ -140,23 +140,35 @@ export default function Sidebar() {
 
     if (role === 'Admin Puskesmas') {
       const hiddenPaths = ['/puskesmas', '/admin'];
-      filtered = filtered.filter(item => !hiddenPaths.includes(item.path));
+      filtered = filtered.filter(item => !hiddenPaths.includes(item.path) && item.name !== 'Pengaturan');
       
       const stokMenu = filtered.find(item => item.name === 'Stok Obat');
       if (stokMenu && stokMenu.children) {
         const hiddenSubPaths = ['/stok', '/stok/dinas'];
         stokMenu.children = stokMenu.children.filter(child => !hiddenSubPaths.includes(child.path));
       }
+
+      // Sembunyikan Data HB dari menu Pemeriksaan HB
+      const hbMenu = filtered.find(item => item.name === 'Pemeriksaan HB');
+      if (hbMenu && hbMenu.children) {
+        hbMenu.children = hbMenu.children.filter(child => child.path !== '/hb/data');
+      }
     }
 
     if (role === 'Admin Sekolah') {
       const hiddenPaths = ['/puskesmas', '/sekolah', '/admin'];
-      filtered = filtered.filter(item => !hiddenPaths.includes(item.path));
+      filtered = filtered.filter(item => !hiddenPaths.includes(item.path) && item.name !== 'Pengaturan');
 
       const stokMenu = filtered.find(item => item.name === 'Stok Obat');
       if (stokMenu && stokMenu.children) {
         const hiddenSubPaths = ['/stok', '/stok/dinas', '/stok/puskesmas'];
         stokMenu.children = stokMenu.children.filter(child => !hiddenSubPaths.includes(child.path));
+      }
+
+      // Sembunyikan Data HB dari menu Pemeriksaan HB
+      const hbMenu = filtered.find(item => item.name === 'Pemeriksaan HB');
+      if (hbMenu && hbMenu.children) {
+        hbMenu.children = hbMenu.children.filter(child => child.path !== '/hb/data');
       }
     }
     return filtered;

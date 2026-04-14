@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { useAuth } from '../../context/AuthContext';
 import { Edit, Trash2, Plus } from 'lucide-react';
 import '../../styles/Modal.css';
 
@@ -23,6 +24,7 @@ const Modal = ({ isOpen, onClose, onSubmit, children, title }) => {
 };
 
 export default function DataHB() {
+  const { currentUserData } = useAuth();
   const [dataList, setDataList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setModalOpen] = useState(false);
@@ -124,6 +126,16 @@ export default function DataHB() {
       }
     }
   };
+
+  // Proteksi halaman: Hanya Super Admin yang boleh akses
+  if (currentUserData && currentUserData.role !== 'Super Admin') {
+    return (
+      <div className="data-hb-container" style={{ padding: '20px' }}>
+        <h1>Akses Ditolak</h1>
+        <p>Anda tidak memiliki izin untuk mengakses halaman pengaturan kategori HB ini.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="data-hb-container" style={{ width: '100%', padding: '20px' }}>

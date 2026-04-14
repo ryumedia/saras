@@ -215,7 +215,7 @@ export default function Sekolah() {
                 <th>Desa/Kel</th>
                 <th>Kecamatan</th>
                 <th>Kota/Kab</th>
-                <th>Kepala Sekolah</th>
+                <th>PJ UKS</th>
                 <th>Puskesmas Pembina</th>
                 <th>Aksi</th>
               </tr>
@@ -272,7 +272,7 @@ export default function Sekolah() {
           <input type="text" id="kota" name="kota" value={newSekolah.kota} onChange={handleInputChange} />
         </div>
         <div className="input-group">
-          <label htmlFor="kepala">Kepala Sekolah</label>
+          <label htmlFor="kepala">PJ UKS</label>
           <input type="text" id="kepala" name="kepala" value={newSekolah.kepala} onChange={handleInputChange} required />
         </div>
         <div className="input-group">

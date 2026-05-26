@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [kelasList, setKelasList] = useState([]);
   const [siswaList, setSiswaList] = useState([]);
   const [masterHBList, setMasterHBList] = useState([]);
+  const [obatList, setObatList] = useState([]);
 
   // State untuk Data Transaksi
   const [distribusiList, setDistribusiList] = useState([]);
@@ -57,6 +58,7 @@ export default function Dashboard() {
   const [filterSekolah, setFilterSekolah] = useState('');
   const [filterKelas, setFilterKelas] = useState('');
   const [filterSiswa, setFilterSiswa] = useState('');
+  const [filterObat, setFilterObat] = useState('');
 
   // Redirect jika bukan admin
   useEffect(() => {
@@ -96,18 +98,20 @@ export default function Dashboard() {
       try {
         // 1. Fetch Data Master (Puskesmas, Sekolah, Kelas, Siswa)
         // Optimasi: Fetch siswa hanya jika diperlukan atau fetch semua untuk mapping nama
-        const [puskesmasSnap, sekolahSnap, kelasSnap, siswaSnap, masterHBSnap] = await Promise.all([
+        const [puskesmasSnap, sekolahSnap, kelasSnap, siswaSnap, masterHBSnap, obatSnap] = await Promise.all([
           getDocs(collection(db, "puskesmas")),
           getDocs(collection(db, "sekolah")),
           getDocs(collection(db, "kelas")),
           getDocs(collection(db, "siswa")), // Fetch semua siswa untuk mapping nama & kelas
-          getDocs(collection(db, "master_hb"))
+          getDocs(collection(db, "master_hb")),
+          getDocs(collection(db, "obat"))
         ]);
 
         setPuskesmasList(puskesmasSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setSekolahList(sekolahSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setKelasList(kelasSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         setSiswaList(siswaSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setObatList(obatSnap.docs.map(d => ({ id: d.id, ...d.data() })));
         
         const hbItems = masterHBSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         const order = ['anemia berat', 'anemia sedang', 'anemia ringan', 'normal'];
@@ -297,9 +301,13 @@ export default function Dashboard() {
     let sisa = 0;
 
     // Helper untuk cek apakah item termasuk dalam filter Puskesmas/Sekolah/Kelas(ignored for stock)/Siswa(ignored)
-    const checkFilter = (itemSekolahId) => {
+    const checkFilter = (item) => {
+       const itemSekolahId = item.sekolahId;
        if (!itemSekolahId) return false;
        
+       // Tambahkan filter obat agar sisa stok sesuai dengan obat yang dipilih
+       if (filterObat && item.obatId !== filterObat) return false;
+
        // Jika Filter Sekolah Aktif: Cukup cek kesamaan ID Sekolah
        if (filterSekolah) {
          return itemSekolahId === filterSekolah;
@@ -315,26 +323,26 @@ export default function Dashboard() {
 
     // Stok Masuk
     stokMasukList.forEach(item => {
-      if (checkFilter(item.sekolahId)) masuk += (parseInt(item.jumlah) || 0);
+      if (checkFilter(item)) masuk += (parseInt(item.jumlah) || 0);
     });
 
     // Stok Keluar (Distribusi ke Siswa)
     distribusiList.forEach(item => {
-      if (checkFilter(item.sekolahId)) keluar += (parseInt(item.jumlahTotal || item.jumlah) || 0);
+      if (checkFilter(item)) keluar += (parseInt(item.jumlahTotal || item.jumlah) || 0);
     });
 
     // Stok Kadaluarsa
     kadaluarsaList.forEach(item => {
-      if (checkFilter(item.sekolahId)) kadaluarsa += (parseInt(item.jumlah) || 0);
+      if (checkFilter(item)) kadaluarsa += (parseInt(item.jumlah) || 0);
     });
 
     // Sisa Stok (Snapshot saat ini)
     stokSekolahList.forEach(item => {
-      if (checkFilter(item.sekolahId)) sisa += (parseInt(item.stok) || 0);
+      if (checkFilter(item)) sisa += (parseInt(item.stok) || 0);
     });
 
     return { masuk, keluar, kadaluarsa, sisa };
-  }, [stokMasukList, distribusiList, kadaluarsaList, stokSekolahList, sekolahList, filterPuskesmas, filterSekolah]);
+  }, [stokMasukList, distribusiList, kadaluarsaList, stokSekolahList, sekolahList, filterPuskesmas, filterSekolah, filterObat]);
 
   // Helper untuk memilih ikon berdasarkan nama status (fallback jika dinamis)
   const getStatusIcon = (status, color) => {
@@ -554,6 +562,18 @@ export default function Dashboard() {
               .filter(s => s.kelasId === filterKelas)
               .sort((a, b) => a.nama.localeCompare(b.nama))
               .map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
+          </select>
+        </div>
+
+        <div className="filter-group">
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', marginBottom: '5px', color: '#374151' }}>Pilih Obat</label>
+          <select 
+            value={filterObat} 
+            onChange={e => setFilterObat(e.target.value)} 
+            style={{ padding: '9px 12px', borderRadius: '6px', border: '1px solid #d1d5db', minWidth: '150px' }}
+          >
+            <option value="">Semua Obat</option>
+            {obatList.map(o => <option key={o.id} value={o.id}>{o.nama}</option>)}
           </select>
         </div>
       </div>

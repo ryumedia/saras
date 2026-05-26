@@ -35,6 +35,7 @@ export default function StokPuskesmas() {
   const [puskesmasId, setPuskesmasId] = useState(null);
   const [editId, setEditId] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -235,7 +236,11 @@ export default function StokPuskesmas() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'puskesmasId') {
+      setFormData(prev => ({ ...prev, [name]: value, sekolahId: '', obatId: '' }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   // Auto-select obat default saat Puskesmas dipilih (khusus Super Admin di Modal)
@@ -383,6 +388,59 @@ export default function StokPuskesmas() {
     }
   };
 
+  const handleDelete = async (item) => {
+    if (window.confirm("Yakin ingin menghapus transaksi ini? Stok obat akan dikembalikan ke Puskesmas dan ditarik dari Sekolah.")) {
+      setDeleteLoading(true);
+      try {
+        // 1. Kembalikan stok ke Puskesmas
+        const qInv = query(collection(db, "puskesmas_stok"),
+          where("puskesmasId", "==", item.puskesmasId),
+          where("obatId", "==", item.obatId)
+        );
+        const invSnap = await getDocs(qInv);
+        if (!invSnap.empty) {
+          const invDoc = invSnap.docs[0];
+          await updateDoc(invDoc.ref, {
+            stok: (invDoc.data().stok || 0) + item.jumlah
+          });
+        } else {
+          // Jika tidak ada stok sebelumnya (misal data tidak konsisten), tambahkan saja
+          await addDoc(collection(db, "puskesmas_stok"), {
+            puskesmasId: item.puskesmasId,
+            obatId: item.obatId,
+            namaObat: item.namaObat,
+            stok: item.jumlah
+          });
+        }
+
+        // 2. Tarik stok dari Sekolah
+        const qSekolah = query(collection(db, "sekolah_stok"),
+          where("sekolahId", "==", item.sekolahId),
+          where("obatId", "==", item.obatId)
+        );
+        const sekolahSnap = await getDocs(qSekolah);
+        if (!sekolahSnap.empty) {
+          const sekolahDoc = sekolahSnap.docs[0];
+          await updateDoc(sekolahDoc.ref, {
+            stok: (sekolahDoc.data().stok || 0) - item.jumlah
+          });
+        } else {
+          console.warn(`Stok sekolah untuk obat ${item.namaObat} di sekolah ${item.sekolahId} tidak ditemukan saat menghapus transaksi.`);
+        }
+
+        // 3. Hapus transaksi itu sendiri
+        await deleteDoc(doc(db, "puskesmas_transaksi", item.id));
+        fetchData(puskesmasId); // Refresh data
+        alert("Transaksi berhasil dihapus dan stok telah dikembalikan.");
+      } catch (err) {
+        console.error("Error deleting transaction:", err);
+        alert("Gagal menghapus transaksi.");
+      } finally {
+        setDeleteLoading(false);
+      }
+    }
+  };
+
   const getPuskesmasName = (id) => {
     const p = puskesmasList.find(item => item.id === id);
     return p ? p.nama : '-';
@@ -498,7 +556,10 @@ export default function StokPuskesmas() {
                 <td>{item.tipe === 'masuk' ? item.sumber : item.namaSekolah}</td>
                 <td>
                   {item.tipe === 'keluar' && (
-                    <button className="action-button edit" onClick={() => handleEdit(item)}>Edit</button>
+                    <>
+                      <button className="action-button edit" onClick={() => handleEdit(item)}>Edit</button>
+                      <button className="action-button delete" onClick={() => handleDelete(item)} disabled={deleteLoading}>Hapus</button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -553,11 +614,13 @@ export default function StokPuskesmas() {
 
         <div className="input-group">
           <label>Sasaran Sekolah</label>
-          <select name="sekolahId" value={formData.sekolahId} onChange={handleInputChange} required>
+          <select name="sekolahId" value={formData.sekolahId} onChange={handleInputChange} required disabled={!(puskesmasId || formData.puskesmasId)}>
             <option value="">-- Pilih Sekolah --</option>
-            {sekolahList.map(s => (
-              <option key={s.id} value={s.id}>{s.nama}</option>
-            ))}
+            {sekolahList
+              .filter(s => s.puskesmasId === (puskesmasId || formData.puskesmasId))
+              .map(s => (
+                <option key={s.id} value={s.id}>{s.nama}</option>
+              ))}
           </select>
         </div>
       </Modal>

@@ -84,6 +84,8 @@ export default function Siswa() {
   const [editId, setEditId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isImporting, setIsImporting] = useState(false);
+  const [importStats, setImportStats] = useState({ success: 0, fail: 0 });
 
   // State Filter
   const [filterPuskesmas, setFilterPuskesmas] = useState('');
@@ -418,7 +420,10 @@ export default function Siswa() {
     const file = e.target.files[0];
     if (!file) return;
 
-    setActiveModal(null); // Tutup modal panduan setelah file dipilih
+    setActiveModal('importing');
+    setIsImporting(true);
+    setImportStats({ success: 0, fail: 0 });
+
     const reader = new FileReader();
     reader.onload = async (evt) => {
       let secondaryApp;
@@ -498,14 +503,15 @@ export default function Siswa() {
             console.error(`Gagal import ${nama} (${email}):`, err);
             failCount++;
           }
+          setImportStats({ success: successCount, fail: failCount });
         }
-
-        alert(`Import selesai!\nBerhasil: ${successCount}\nGagal: ${failCount}`);
         fetchData();
       } catch (err) {
         console.error("Error importing:", err);
         alert("Gagal mengimpor file Excel.");
+        setActiveModal(null);
       } finally {
+        setIsImporting(false);
         if (secondaryApp) {
           try {
             await deleteApp(secondaryApp);
@@ -651,6 +657,25 @@ export default function Siswa() {
         onClose={handleCloseModal}
         onFileSelect={handleFileChange}
       />
+
+      <Modal 
+        isOpen={activeModal === 'importing'} 
+        onClose={isImporting ? null : handleCloseModal} 
+        title="Status Import Data" 
+        showSave={false}
+      >
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          {isImporting ? (
+            <p style={{ fontSize: '1.1em', color: '#666' }}>Sedang memproses data, mohon tunggu...</p>
+          ) : (
+            <div style={{ fontSize: '1.1em' }}>
+              <p style={{ fontWeight: 'bold', marginBottom: '15px', color: '#059669' }}>Import Selesai!</p>
+              <p>Berhasil: <span style={{ fontWeight: 'bold', color: '#059669' }}>{importStats.success}</span></p>
+              <p>Gagal: <span style={{ fontWeight: 'bold', color: '#dc2626' }}>{importStats.fail}</span></p>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <Modal isOpen={activeModal === 'form'} onClose={handleCloseModal} onSubmit={handleSubmit} title={editId ? "Edit Siswa" : "Tambah Siswa Baru"}>
         <div className="input-group">

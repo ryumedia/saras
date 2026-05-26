@@ -36,6 +36,7 @@ export default function StokSekolah() {
   const [sekolahId, setSekolahId] = useState(null);
   const [editId, setEditId] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
+  const [searchSiswaModal, setSearchSiswaModal] = useState('');
 
   // State Filter
   const [filterYear, setFilterYear] = useState('');
@@ -350,6 +351,7 @@ export default function StokSekolah() {
       jumlahPerSiswa: item.jumlahPerSiswa,
       selectedSiswa: item.siswaIds || []
     });
+    setSearchSiswaModal('');
     setModalOpen(true);
   };
 
@@ -380,6 +382,7 @@ export default function StokSekolah() {
       jumlahPerSiswa: 1,
       selectedSiswa: []
     });
+    setSearchSiswaModal('');
     setModalOpen(true);
   };
 
@@ -387,6 +390,7 @@ export default function StokSekolah() {
     setModalOpen(false);
     setEditId(null);
     setEditingItem(null);
+    setSearchSiswaModal('');
   };
 
   // Filter siswa untuk modal (berdasarkan sekolah yang dipilih)
@@ -409,10 +413,15 @@ export default function StokSekolah() {
   };
 
   const handleSelectAllSiswa = (e) => {
+    const visibleSiswa = modalSiswaList.filter(s => 
+      s.nama.toLowerCase().includes(searchSiswaModal.toLowerCase())
+    );
     if (e.target.checked) {
-      setFormData(prev => ({ ...prev, selectedSiswa: modalSiswaList.map(s => s.id) }));
+      const visibleIds = visibleSiswa.map(s => s.id);
+      setFormData(prev => ({ ...prev, selectedSiswa: [...new Set([...prev.selectedSiswa, ...visibleIds])] }));
     } else {
-      setFormData(prev => ({ ...prev, selectedSiswa: [] }));
+      const visibleIds = visibleSiswa.map(s => s.id);
+      setFormData(prev => ({ ...prev, selectedSiswa: prev.selectedSiswa.filter(id => !visibleIds.includes(id)) }));
     }
   };
 
@@ -757,16 +766,29 @@ export default function StokSekolah() {
 
         <div className="input-group">
           <label>Pilih Siswa ({formData.selectedSiswa.length} terpilih)</label>
+          <input 
+            type="text" 
+            placeholder="Cari nama siswa..." 
+            value={searchSiswaModal} 
+            onChange={e => setSearchSiswaModal(e.target.value)}
+            style={{ marginBottom: '10px', width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #d1d5db' }}
+          />
           <div className="checkbox-list">
             <label className="checkbox-item header">
               <input 
                 type="checkbox" 
                 onChange={handleSelectAllSiswa}
-                checked={modalSiswaList.length > 0 && formData.selectedSiswa.length === modalSiswaList.length}
+                checked={
+                  modalSiswaList.length > 0 && 
+                  modalSiswaList.filter(s => s.nama.toLowerCase().includes(searchSiswaModal.toLowerCase())).length > 0 &&
+                  modalSiswaList.filter(s => s.nama.toLowerCase().includes(searchSiswaModal.toLowerCase())).every(s => formData.selectedSiswa.includes(s.id))
+                }
               />
-              <span>Pilih Semua Siswa</span>
+              <span>Pilih Semua yang Tampil</span>
             </label>
-            {modalSiswaList.map(siswa => (
+            {modalSiswaList
+              .filter(s => s.nama.toLowerCase().includes(searchSiswaModal.toLowerCase()))
+              .map(siswa => (
               <div key={siswa.id}>
                 <label className="checkbox-item">
                   <input 

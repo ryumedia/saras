@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { auth, db } from '../../firebase';
+import { auth, db } from '../../firebase'; // Ensure db is imported
 import { signOut, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { User, LogOut, Lock, Phone, Mail, School, Award, BookOpen, Shield, MapPin, Calendar, Activity } from 'lucide-react';
+import { doc, getDoc, updateDoc } from 'firebase/firestore'; // Import updateDoc
+import { User, LogOut, Lock, Phone, Mail, School, Award, BookOpen, Shield, MapPin, Calendar, Activity, Edit } from 'lucide-react'; // Import Edit icon
 import '../../styles/ProfilSiswa.css';
 import '../../styles/Modal.css';
 
@@ -37,6 +37,9 @@ export default function ProfilSiswa() {
     confirm: ''
   });
   const [loadingPass, setLoadingPass] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [editProfileFormData, setEditProfileFormData] = useState({});
+  const [loadingEditProfile, setLoadingEditProfile] = useState(false);
 
   // Ambil nama sekolah berdasarkan ID
   useEffect(() => {
@@ -104,6 +107,67 @@ export default function ProfilSiswa() {
     }
   };
 
+  const handleOpenEditProfileModal = () => {
+    setEditProfileFormData({
+      nama: currentUserData.nama || '',
+      wa: currentUserData.wa || '',
+      tempatLahir: currentUserData.tempatLahir || '',
+      tanggalLahir: currentUserData.tanggalLahir || '',
+      alamat: currentUserData.alamat || '',
+      desa: currentUserData.desa || '',
+      kecamatan: currentUserData.kecamatan || '',
+      photoURL: currentUserData.photoURL || '',
+    });
+    setIsEditProfileModalOpen(true);
+  };
+
+  const handleCloseEditProfileModal = () => {
+    setIsEditProfileModalOpen(false);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Batasi ukuran file (misal 500KB) agar tidak melebihi limit dokumen Firestore (1MB)
+      if (file.size > 512000) {
+        alert("Ukuran file terlalu besar. Maksimal 500KB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditProfileFormData(prev => ({ ...prev, photoURL: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEditProfileInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditProfileFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setLoadingEditProfile(true);
+    try {
+      if (!currentUser || !currentUser.uid) {
+        alert("User not logged in.");
+        return;
+      }
+      const userDocRef = doc(db, "siswa", currentUser.uid);
+      await updateDoc(userDocRef, editProfileFormData);
+      alert("Profil berhasil diperbarui!");
+      handleCloseEditProfileModal();
+      // Assuming AuthContext will re-fetch currentUserData on its own or on next page load
+      // For immediate update, you might need to call a context function to refresh user data
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Gagal memperbarui profil: " + error.message);
+    } finally {
+      setLoadingEditProfile(false);
+    }
+  };
+
   if (!currentUserData) return <div className="p-4 text-center">Memuat profil...</div>;
 
   return (
@@ -115,9 +179,17 @@ export default function ProfilSiswa() {
         <div className="profil-card main-card">
           <div className="profile-flex">
             <div className="avatar-container">
-              <div className="avatar-placeholder">
-                <User size={40} />
-              </div>
+              {currentUserData.photoURL ? (
+                <img 
+                  src={currentUserData.photoURL} 
+                  alt="Avatar" 
+                  style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '4px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                />
+              ) : (
+                <div className="avatar-placeholder">
+                  <User size={40} />
+                </div>
+              )}
             </div>
             <div className="profile-info">
               <h2 className="siswa-nama">{currentUserData.nama}</h2>
@@ -126,6 +198,10 @@ export default function ProfilSiswa() {
                 <div className="siswa-poin-badge">
                   <Award size={16} />
                   <span>{currentUserData.poin || 0} Poin</span>
+                </div>
+                <div className="siswa-poin-badge" style={{ cursor: 'pointer' }} onClick={handleOpenEditProfileModal}>
+                  <Edit size={16} />
+                  <span>Edit Profil</span>
                 </div>
                 {currentUserData.lastPemeriksaan && (
                   <div style={{ 
@@ -288,6 +364,96 @@ export default function ProfilSiswa() {
           />
         </div>
         {loadingPass && <p className="text-sm text-gray-500 mt-2">Memproses perubahan password...</p>}
+      </Modal>
+
+      {/* Modal Edit Profil */}
+      <Modal
+        isOpen={isEditProfileModalOpen}
+        onClose={handleCloseEditProfileModal}
+        onSubmit={handleSaveProfile}
+        title="Edit Profil Siswa"
+      >
+        <div className="input-group" style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto 10px' }}>
+            {editProfileFormData.photoURL ? (
+              <img 
+                src={editProfileFormData.photoURL} 
+                alt="Preview" 
+                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #0d9488' }} 
+              />
+            ) : (
+              <div style={{ width: '100%', height: '100%', borderRadius: '50%', backgroundColor: '#f0fdfa', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #e5e7eb' }}>
+                <User size={40} color="#0d9488" />
+              </div>
+            )}
+          </div>
+          <label 
+            className="btn-action change-pass" 
+            style={{ cursor: 'pointer', display: 'inline-flex', width: 'auto', padding: '8px 16px', fontSize: '0.85rem', gap: '8px' }}
+          >
+            <Edit size={16} />
+            <span>Ubah Foto</span>
+            <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
+          </label>
+        </div>
+
+        <div className="input-group">
+          <label>Nama Lengkap</label>
+          <input
+            type="text"
+            name="nama"
+            value={editProfileFormData.nama || ''}
+            onChange={handleEditProfileInputChange}
+            required
+          />
+        </div>
+        <div className="input-group">
+          <label>Nomor WhatsApp (Format: 628...)</label>
+          <input
+            type="text"
+            name="wa"
+            value={editProfileFormData.wa || ''}
+            onChange={handleEditProfileInputChange}
+            placeholder="628..."
+            required
+          />
+        </div>
+        <div className="input-group">
+          <label>Tempat Lahir</label>
+          <input
+            type="text"
+            name="tempatLahir"
+            value={editProfileFormData.tempatLahir || ''}
+            onChange={handleEditProfileInputChange}
+          />
+        </div>
+        <div className="input-group">
+          <label>Tanggal Lahir</label>
+          <input
+            type="date"
+            name="tanggalLahir"
+            value={editProfileFormData.tanggalLahir || ''}
+            onChange={handleEditProfileInputChange}
+          />
+        </div>
+        <div className="input-group">
+          <label>Alamat (Jalan/Blok, RT/RW)</label>
+          <input
+            type="text"
+            name="alamat"
+            value={editProfileFormData.alamat || ''}
+            onChange={handleEditProfileInputChange}
+          />
+        </div>
+        <div className="input-group">
+          <label>Desa/Kelurahan</label>
+          <input type="text" name="desa" value={editProfileFormData.desa || ''} onChange={handleEditProfileInputChange} />
+        </div>
+        <div className="input-group">
+          <label>Kecamatan</label>
+          <input type="text" name="kecamatan" value={editProfileFormData.kecamatan || ''} onChange={handleEditProfileInputChange} />
+        </div>
+        {loadingEditProfile && <p className="text-sm text-gray-500 mt-2">Menyimpan perubahan profil...</p>}
       </Modal>
     </div>
   );

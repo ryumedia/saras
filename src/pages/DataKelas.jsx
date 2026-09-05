@@ -31,7 +31,8 @@ export default function DataKelas() {
   const [isModalOpen, setModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentId, setCurrentId] = useState(null);
-  
+  const [filterSekolah, setFilterSekolah] = useState('');
+
   const [formData, setFormData] = useState({
     sekolahId: '',
     rombel: '7',
@@ -56,15 +57,15 @@ export default function DataKelas() {
         if (currentUserData.role === 'Admin Sekolah') {
           qKelas = query(collection(db, "kelas"), where("sekolahId", "==", currentUserData.relatedId));
         }
-        
+
         const kelasSnap = await getDocs(qKelas);
         const kelasData = kelasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
+
         // Sorting: Sekolah -> Rombel -> Nama Kelas
         kelasData.sort((a, b) => {
-            if (a.sekolahId !== b.sekolahId) return a.sekolahId.localeCompare(b.sekolahId);
-            if (a.rombel !== b.rombel) return parseInt(a.rombel) - parseInt(b.rombel);
-            return a.namaKelas.localeCompare(b.namaKelas);
+          if (a.sekolahId !== b.sekolahId) return a.sekolahId.localeCompare(b.sekolahId);
+          if (a.rombel !== b.rombel) return parseInt(a.rombel) - parseInt(b.rombel);
+          return a.namaKelas.localeCompare(b.namaKelas);
         });
 
         setKelasList(kelasData);
@@ -146,6 +147,15 @@ export default function DataKelas() {
     }
   };
 
+  // Filter data berdasarkan nama sekolah
+  // Super Admin: bebas pilih (opsi kosong = semua sekolah)
+  // Admin Sekolah: terkunci ke sekolahnya sendiri (sudah difilter di query)
+  const filteredKelasList = currentUserData?.role === 'Admin Sekolah'
+    ? kelasList
+    : (filterSekolah ? kelasList.filter(item => item.sekolahId === filterSekolah) : kelasList);
+
+  const isFilterLocked = currentUserData?.role === 'Admin Sekolah';
+
   const getNamaSekolah = (id) => {
     const sekolah = sekolahList.find(s => s.id === id);
     return sekolah ? sekolah.nama : '-';
@@ -156,19 +166,35 @@ export default function DataKelas() {
   }
 
   if (currentUserData?.role !== 'Super Admin' && currentUserData?.role !== 'Admin Sekolah') {
-      return <div className="p-4">Akses Ditolak. Halaman ini hanya untuk Super Admin dan Admin Sekolah.</div>;
+    return <div className="p-4">Akses Ditolak. Halaman ini hanya untuk Super Admin dan Admin Sekolah.</div>;
   }
 
   return (
     <div className="data-kelas-container p-4">
       <div className="page-header flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Data Kelas</h1>
-        <button 
-          className="add-button bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700 transition-colors" 
+        <button
+          className="add-button bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700 transition-colors"
           onClick={() => handleOpenModal()}
         >
           <Plus size={18} /> Tambah Kelas
         </button>
+      </div>
+
+      {/* Filter Nama Sekolah */}
+      <div className="filter-container mb-4 flex items-center gap-2">
+        <label className="font-medium text-gray-700">Filter Sekolah:</label>
+        <select
+          value={isFilterLocked ? currentUserData.relatedId : filterSekolah}
+          onChange={(e) => setFilterSekolah(e.target.value)}
+          disabled={isFilterLocked}
+          className="p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+        >
+          <option value="">-- Semua Sekolah --</option>
+          {sekolahList.map(s => (
+            <option key={s.id} value={s.id}>{s.nama}</option>
+          ))}
+        </select>
       </div>
 
       <div className="table-container overflow-x-auto bg-white rounded-lg shadow">
@@ -183,7 +209,7 @@ export default function DataKelas() {
             </tr>
           </thead>
           <tbody>
-            {kelasList.map((item, index) => (
+            {filteredKelasList.map((item, index) => (
               <tr key={item.id} className="hover:bg-gray-50 border-b last:border-b-0">
                 <td className="p-3">{index + 1}</td>
                 <td className="p-3">{getNamaSekolah(item.sekolahId)}</td>
@@ -191,15 +217,15 @@ export default function DataKelas() {
                 <td className="p-3">{item.namaKelas}</td>
                 <td className="p-3 text-center">
                   <div className="flex justify-center gap-2">
-                    <button 
-                      className="action-button edit text-blue-600 hover:text-blue-800 p-1" 
+                    <button
+                      className="action-button edit text-blue-600 hover:text-blue-800 p-1"
                       onClick={() => handleOpenModal(item)}
                       title="Edit"
                     >
                       <Edit size={18} />
                     </button>
-                    <button 
-                      className="action-button delete text-red-600 hover:text-red-800 p-1" 
+                    <button
+                      className="action-button delete text-red-600 hover:text-red-800 p-1"
                       onClick={() => handleDelete(item.id)}
                       title="Hapus"
                     >
@@ -209,7 +235,7 @@ export default function DataKelas() {
                 </td>
               </tr>
             ))}
-            {kelasList.length === 0 && (
+            {filteredKelasList.length === 0 && (
               <tr>
                 <td colSpan="5" className="p-6 text-center text-gray-500">Belum ada data kelas.</td>
               </tr>
@@ -218,18 +244,18 @@ export default function DataKelas() {
         </table>
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={handleCloseModal} 
-        onSubmit={handleSubmit} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmit}
         title={isEdit ? "Edit Kelas" : "Tambah Kelas Baru"}
       >
         <div className="input-group mb-4">
           <label className="block mb-1 font-medium text-gray-700">Sekolah</label>
-          <select 
-            name="sekolahId" 
-            value={formData.sekolahId} 
-            onChange={(e) => setFormData({...formData, sekolahId: e.target.value})}
+          <select
+            name="sekolahId"
+            value={formData.sekolahId}
+            onChange={(e) => setFormData({ ...formData, sekolahId: e.target.value })}
             required
             disabled={currentUserData?.role === 'Admin Sekolah'}
             className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
@@ -240,13 +266,13 @@ export default function DataKelas() {
             ))}
           </select>
         </div>
-        
+
         <div className="input-group mb-4">
           <label className="block mb-1 font-medium text-gray-700">Rombel</label>
-          <select 
-            name="rombel" 
-            value={formData.rombel} 
-            onChange={(e) => setFormData({...formData, rombel: e.target.value})}
+          <select
+            name="rombel"
+            value={formData.rombel}
+            onChange={(e) => setFormData({ ...formData, rombel: e.target.value })}
             required
             className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
@@ -255,14 +281,14 @@ export default function DataKelas() {
             ))}
           </select>
         </div>
-        
+
         <div className="input-group mb-4">
           <label className="block mb-1 font-medium text-gray-700">Nama Kelas</label>
-          <input 
-            type="text" 
-            name="namaKelas" 
-            value={formData.namaKelas} 
-            onChange={(e) => setFormData({...formData, namaKelas: e.target.value})}
+          <input
+            type="text"
+            name="namaKelas"
+            value={formData.namaKelas}
+            onChange={(e) => setFormData({ ...formData, namaKelas: e.target.value })}
             required
             placeholder="Contoh: 7A, 8 Unggulan"
             className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
